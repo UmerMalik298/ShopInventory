@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ShopInventory.Infrastructure.Data;
+using ShopInventory.Infrastructure;
 
 namespace ShopInventory.App;
 
@@ -18,8 +19,15 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
+
+        builder.Services.AddScoped<ShopInventory.Application.Interfaces.IDbContext>(
+    sp => sp.GetRequiredService<ApplicationDbContext>()
+);
+
+
+        //builder.Services.AddInfrastructure(); // Your custom DI extension
 #if DEBUG
-		builder.Services.AddBlazorWebViewDeveloperTools();
+        builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
 #endif
 

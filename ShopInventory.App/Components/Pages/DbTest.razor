@@ -1,0 +1,87 @@
+﻿@page "/dbtest"
+@using Microsoft.EntityFrameworkCore
+@using ShopInventory.Domain.Entities
+@using ShopInventory.Application.Interfaces
+@inject IDbContext Db
+
+<h3>DB Test</h3>
+
+<p><b>Status:</b> @status</p>
+
+<button @onclick="AddAppInfo">Add AppInfo</button>
+<button @onclick="AddProduct" style="margin-left:8px">Add Product</button>
+<button @onclick="AddQueueItem" style="margin-left:8px">Add Sync Item</button>
+
+<hr />
+
+<h4>Counts</h4>
+<ul>
+    <li>AppInfo: @appInfoCount</li>
+    <li>Product: @productCount</li>
+    <li>SyncQueueItem: @queueCount</li>
+</ul>
+
+@code {
+    private string status = "Ready";
+    private int appInfoCount;
+    private int productCount;
+    private int queueCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshCounts();
+    }
+
+    private async Task RefreshCounts()
+    {
+        appInfoCount = await Db.AppInfo.CountAsync();
+        productCount = await Db.Product.CountAsync();
+        queueCount = await Db.SyncQueueItem.CountAsync();
+        StateHasChanged();
+    }
+
+    private async Task AddAppInfo()
+    {
+        Db.AppInfo.Add(new AppInfo
+        {
+            DeviceId = "TEST-PC",
+            DeviceName = "Windows",
+            LastSyncAt = null
+        });
+
+        await Db.SaveChangesAsync();
+        status = "AppInfo added";
+        await RefreshCounts();
+    }
+
+    private async Task AddProduct()
+    {
+        Db.Product.Add(new Product
+        {
+            Name = "Test Product",
+            Sku = "SKU-" + DateTime.UtcNow.Ticks,
+            CostPrice = 100,
+            SalePrice = 130,
+            Brand = "Test",
+            PartNumber = "PN-" + DateTime.UtcNow.Ticks
+        });
+
+        await Db.SaveChangesAsync();
+        status = "Product added";
+        await RefreshCounts();
+    }
+
+    private async Task AddQueueItem()
+    {
+        Db.SyncQueueItem.Add(new SyncQueueItem
+        {
+            EventType = "ProductCreated",
+            PayloadJson = "{\"test\":true}",
+            Status = SyncStatus.Pending
+        });
+
+        await Db.SaveChangesAsync();
+        status = "Sync item added";
+        await RefreshCounts();
+    }
+}
