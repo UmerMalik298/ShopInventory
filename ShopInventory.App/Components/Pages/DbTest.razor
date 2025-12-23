@@ -2,13 +2,16 @@
 @using Microsoft.EntityFrameworkCore
 @using ShopInventory.Domain.Entities
 @using ShopInventory.Application.Interfaces
+@using ShopInventory.Domain.Entities.Enums
+@using ShopInventory.Domain.Entities.Products
+@using ShopInventory.Domain.Entities.SyncQueueItems
 @inject IDbContext Db
 
 <h3>DB Test</h3>
 
 <p><b>Status:</b> @status</p>
 
-<button @onclick="AddAppInfo">Add AppInfo</button>
+@* <button @onclick="AddAppInfo">Add AppInfo</button> *@
 <button @onclick="AddProduct" style="margin-left:8px">Add Product</button>
 <button @onclick="AddQueueItem" style="margin-left:8px">Add Sync Item</button>
 
@@ -40,19 +43,17 @@
         StateHasChanged();
     }
 
-    private async Task AddAppInfo()
-    {
-        Db.AppInfo.Add(new AppInfo
-        {
-            DeviceId = "TEST-PC",
-            DeviceName = "Windows",
-            LastSyncAt = null
-        });
+    // private async Task AddAppInfo()
+    // {
+    //     Db.AppInfo.Add(new AppInfo
+    //     {
+            
+    //     });
 
-        await Db.SaveChangesAsync();
-        status = "AppInfo added";
-        await RefreshCounts();
-    }
+    //     await Db.SaveChangesAsync();
+    //     status = "AppInfo added";
+    //     await RefreshCounts();
+    // }
 
     private async Task AddProduct()
     {
@@ -62,8 +63,7 @@
             Sku = "SKU-" + DateTime.UtcNow.Ticks,
             CostPrice = 100,
             SalePrice = 130,
-            Brand = "Test",
-            PartNumber = "PN-" + DateTime.UtcNow.Ticks
+          
         });
 
         await Db.SaveChangesAsync();
@@ -77,7 +77,7 @@
         {
             EventType = "ProductCreated",
             PayloadJson = "{\"test\":true}",
-            Status = SyncStatus.Pending
+			SyncStatusId = (int) SyncStatus.Pending,
         });
 
         await Db.SaveChangesAsync();
