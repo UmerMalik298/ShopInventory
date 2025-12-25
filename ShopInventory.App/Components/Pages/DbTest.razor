@@ -6,10 +6,47 @@
 @using ShopInventory.Domain.Entities.Products
 @using ShopInventory.Domain.Entities.SyncQueueItems
 @inject IDbContext Db
+@inject HttpClient Http;
+
 
 <h3>DB Test</h3>
 
 <p><b>Status:</b> @status</p>
+
+
+<h4>Add Product</h4>
+
+<div style="max-width:400px">
+    <div>
+        <label>Name</label><br />
+        <input class="form-control" @bind="inputProduct.Name" />
+    </div>
+
+    <div style="margin-top:8px">
+        <label>SKU</label><br />
+        <input class="form-control" @bind="inputProduct.Sku" />
+    </div>
+
+    <div style="margin-top:8px">
+        <label>Cost Price</label><br />
+        <input class="form-control" type="number" @bind="inputProduct.CostPrice" />
+    </div>
+
+    <div style="margin-top:8px">
+        <label>Sale Price</label><br />
+        <input class="form-control" type="number" @bind="inputProduct.SalePrice" />
+    </div>
+
+    <button @onclick="AddProduct" style="margin-top:12px">
+        Save Product
+    </button>
+
+    <button @onclick="SyncToCloud" style="margin-left:8px">
+        Sync to Cloud
+    </button>
+
+</div>
+
 
 @* <button @onclick="AddAppInfo">Add AppInfo</button> *@
 <button @onclick="AddProduct" style="margin-left:8px">Add Product</button>
@@ -29,6 +66,7 @@
     private int appInfoCount;
     private int productCount;
     private int queueCount;
+    private Product inputProduct = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,7 +85,7 @@
     // {
     //     Db.AppInfo.Add(new AppInfo
     //     {
-            
+
     //     });
 
     //     await Db.SaveChangesAsync();
@@ -57,31 +95,115 @@
 
     private async Task AddProduct()
     {
-        Db.Product.Add(new Product
+        if (string.IsNullOrWhiteSpace(inputProduct.Name))
         {
-            Name = "Test Product",
-            Sku = "SKU-" + DateTime.UtcNow.Ticks,
-            CostPrice = 100,
-            SalePrice = 130,
-          
-        });
+            status = "Product name is required";
+            return;
+        }
 
-        await Db.SaveChangesAsync();
-        status = "Product added";
-        await RefreshCounts();
-    }
+        var product = new Product
+            {
+                Id = Guid.NewGuid(),
+                Name = inputProduct.Name,
+                Sku = string.IsNullOrWhiteSpace(inputProduct.Sku)
+                    ? "SKU-" + DateTime.UtcNow.Ticks
+                    : inputProduct.Sku,
+                CostPrice = inputProduct.CostPrice,
+                SalePrice = inputProduct.SalePrice,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
+            };
 
-    private async Task AddQueueItem()
-    {
+        Db.Product.Add(product);
+
+        // Optional: add sync queue entry
         Db.SyncQueueItem.Add(new SyncQueueItem
-        {
-            EventType = "ProductCreated",
-            PayloadJson = "{\"test\":true}",
-			SyncStatusId = (int) SyncStatus.Pending,
-        });
+            {
+                Id = Guid.NewGuid(),
+                EventType = "ProductCreated",
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(product),
+                SyncStatusId = (int)SyncStatus.Pending,
+                AttemptCount = 0,
+                CreatedAt = DateTime.UtcNow
+            });
 
         await Db.SaveChangesAsync();
-        status = "Sync item added";
+
+        status = "Product added successfully";
+
+        inputProduct = new Product(); // clear form
         await RefreshCounts();
     }
-}
+
+         private async Task AddQueueItem()
+    {
+        var queueItem = new SyncQueueItem
+        {
+            Id = Guid.NewGuid(),
+            EventType = "ManualQueueItem",
+            PayloadJson = "{}",
+            SyncStatusId = (int)SyncStatus.Pending,
+            AttemptCount = 0,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        Db.SyncQueueItem.Add(queueItem);
+        await Db.SaveChangesAsync();
+
+        status = "SyncQueueItem added successfully";
+        await RefreshCounts();
+
+    }
+
+
+        private async Task SyncToCloud()
+    {
+        status = "Syncing...";
+        StateHasChanged();
+
+        // Get pending items
+        var pendingItems = await Db.SyncQueueItem
+            .Where(x => x.SyncStatusId == (int)SyncStatus.Pending)
+            .ToListAsync();
+
+        if (!pendingItems.Any())
+        {
+            status = "No pending items to sync";
+            return;
+        }
+
+        foreach (var item in pendingItems)
+        {
+            try
+            {
+                var response = await Http.PostAsync(
+                    "api/sync/product",
+                    new StringContent(
+                        item.PayloadJson,
+                        System.Text.Encoding.UTF8,
+                        "application/json"
+                    )
+                );
+
+                if (response.IsSuccessStatusCode)
+                {
+                    item.SyncStatusId = (int)SyncStatus.Synced;
+                }
+                else
+                {
+                    item.AttemptCount++;
+                }
+            }
+            catch
+            {
+                item.AttemptCount++;
+            }
+        }
+
+        await Db.SaveChangesAsync();
+
+        status = "Sync completed";
+        await RefreshCounts();
+    }
+
+   }

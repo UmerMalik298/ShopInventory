@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using ShopInventory.Infrastructure.Data;
 using ShopInventory.Infrastructure;
 
@@ -23,13 +25,21 @@ public static class MauiProgram
         builder.Services.AddScoped<ShopInventory.Application.Interfaces.IDbContext>(
     sp => sp.GetRequiredService<ApplicationDbContext>()
 );
+        builder.Services.AddHttpClient("ApiClient", client =>
+        {
+            client.BaseAddress = new Uri("https://localhost:7281/");
+        });
+
+        builder.Services.AddScoped(sp =>
+            sp.GetRequiredService<IHttpClientFactory>()
+              .CreateClient("ApiClient"));
 
 
         //builder.Services.AddInfrastructure(); // Your custom DI extension
-#if DEBUG
+
         builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
-#endif
+
 
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "shopinventory.db");
         System.Diagnostics.Debug.WriteLine("DB PATH = " + dbPath);
