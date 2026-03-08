@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ShopInventory.API.DTOs
+﻿namespace ShopInventory.Application.DTOs
 {
     public class ProductDto
     {
@@ -27,6 +25,3 @@ namespace ShopInventory.API.DTOs
         public string? Unit { get; set; }
     }
 }
-
-
-

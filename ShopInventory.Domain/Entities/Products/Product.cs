@@ -17,5 +17,9 @@ namespace ShopInventory.Domain.Entities.Products
 
         public string? Category { get; set; }         
         public string? Unit { get; set; }
+
+
+        public int Quantity { get; set; } = 0;
+        public string? ImagePath { get; set; }
     }
 }

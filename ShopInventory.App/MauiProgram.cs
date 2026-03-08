@@ -35,7 +35,7 @@ public static class MauiProgram
               .CreateClient("ApiClient"));
 
 
-        //builder.Services.AddInfrastructure(); // Your custom DI extension
+        builder.Services.AddInfrastructure(); // Your custom DI extension
 
         builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
