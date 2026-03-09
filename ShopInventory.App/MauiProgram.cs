@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
 using ShopInventory.Infrastructure.Data;
 using ShopInventory.Infrastructure;
-
+using ShopInventory.Infrastructure.Configuration;
 namespace ShopInventory.App;
 
 public static class MauiProgram
@@ -35,7 +35,7 @@ public static class MauiProgram
               .CreateClient("ApiClient"));
 
 
-        builder.Services.AddInfrastructure(); // Your custom DI extension
+        builder.Services.AddInfrastructure(builder.Configuration); // Your custom DI extension
 
         builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
@@ -56,6 +56,7 @@ public static class MauiProgram
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             db.Database.EnsureCreated();
+            db.Database.Migrate();
         }
 
         return app;

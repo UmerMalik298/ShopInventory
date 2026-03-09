@@ -8,5 +8,7 @@ namespace ShopInventory.Application.Interfaces
         Task<List<ProductDto>> SearchAsync(string query);
         Task<ProductDto> AddAsync(CreateProductDto dto);
         Task UpdateQuantityAsync(Guid id, int delta);
+
+        Task DeleteAsync(Guid id);
     }
 }

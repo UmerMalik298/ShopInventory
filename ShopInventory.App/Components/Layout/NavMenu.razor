@@ -1,33 +1,28 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">ShopInventory.App</a>
+﻿<div class="nav-shell">
+    <div class="brand-box">
+        <div class="brand-icon">SI</div>
+        <div>
+            <div class="brand-title">ShopInventory</div>
+            <div class="brand-subtitle">Stock manager</div>
+        </div>
     </div>
-</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <nav class="nav-links">
+        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+            <span class="nav-dot"></span>
+            <span class="nav-text">Home</span>
+        </NavLink>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="dbtest">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+        <NavLink class="nav-item" href="products">
+            <span class="nav-dot"></span>
+            <span class="nav-text">Products</span>
+        </NavLink>
     </nav>
+
+    <div class="nav-footer">
+        <div class="footer-card">
+            <div class="footer-title">Simple and clean</div>
+            <div class="footer-text">Manage products and stock in one place.</div>
+        </div>
+    </div>
 </div>

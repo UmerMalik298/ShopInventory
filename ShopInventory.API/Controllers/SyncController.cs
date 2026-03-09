@@ -31,7 +31,7 @@ namespace ShopInventory.API.Controllers
                 Sku = dto.Sku,
                 CostPrice = dto.CostPrice,
                 SalePrice = dto.SalePrice,
-                CreatedAt = dto.CreatedAt,
+                //CreatedAt = dto.CreatedAt,
                 IsActive = true
             };
 

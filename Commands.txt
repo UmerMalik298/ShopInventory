@@ -1,0 +1,2 @@
+Add-Migration CreateProductTable -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
+Update-Database -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API

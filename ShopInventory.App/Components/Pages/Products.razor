@@ -1,0 +1,307 @@
+@page "/products"
+@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@using Microsoft.Maui.Storage
+@inject IProductService ProductService
+
+<h3 class="page-title">Products</h3>
+
+<div class="products-shell">
+
+    <div class="tabs-header">
+        <button class="tab-btn @(activeTab == "list" ? "active" : "")" @onclick='() => SetTab("list")'>
+            All Products
+        </button>
+
+        <button class="tab-btn @(activeTab == "add" ? "active" : "")" @onclick='() => SetTab("add")'>
+            Add Product
+        </button>
+
+        <button class="tab-btn @(activeTab == "manage" ? "active" : "")" @onclick='() => SetTab("manage")'>
+            Manage Stock
+        </button>
+    </div>
+
+    @if (activeTab == "list")
+    {
+        <div class="tab-card">
+            <div class="section-top">
+                <h5>All Products</h5>
+                <InputText class="form-control search-box"
+                           placeholder="Search by name, SKU or category"
+                           @bind-Value="searchText" />
+                <button class="btn btn-dark" @onclick="SearchProductsAsync">Search</button>
+                <button class="btn btn-outline-secondary" @onclick="LoadProductsAsync">Reset</button>
+            </div>
+
+            @if (_products.Count == 0)
+            {
+                <p class="empty-text">No products found.</p>
+            }
+            else
+            {
+                <div class="products-grid">
+                    @foreach (var product in _products)
+                    {
+                        <div class="product-card">
+                            @if (!string.IsNullOrWhiteSpace(product.ImagePath))
+                            {
+                                <img src="@GetImageSource(product.ImagePath)"
+                                     alt="@product.Name"
+                                     class="product-image" />
+                            }
+                            else
+                            {
+                                <div class="image-placeholder">No Image</div>
+                            }
+
+                            <div class="product-body">
+                                <h5>@product.Name</h5>
+                                <p><strong>SKU:</strong> @product.Sku</p>
+                                <p><strong>Sale Price:</strong> @product.SalePrice</p>
+                                <p><strong>Cost Price:</strong> @product.CostPrice</p>
+                                <p><strong>Quantity:</strong> @product.Quantity</p>
+                                <p><strong>Category:</strong> @product.Category</p>
+                                <p><strong>Unit:</strong> @product.Unit</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (activeTab == "add")
+    {
+        <div class="tab-card form-card">
+            <h5 class="mb-4">Add Product</h5>
+
+            <div class="form-grid">
+                <div>
+                    <label class="form-label">Name</label>
+                    <InputText class="form-control" @bind-Value="_model.Name" />
+                </div>
+
+                <div>
+                    <label class="form-label">SKU</label>
+                    <InputText class="form-control" @bind-Value="_model.Sku" />
+                </div>
+
+                <div>
+                    <label class="form-label">Sale Price</label>
+                    <InputNumber class="form-control" @bind-Value="_model.SalePrice" />
+                </div>
+
+                <div>
+                    <label class="form-label">Cost Price</label>
+                    <InputNumber class="form-control" @bind-Value="_model.CostPrice" />
+                </div>
+
+                <div>
+                    <label class="form-label">Quantity</label>
+                    <InputNumber class="form-control" @bind-Value="_model.Quantity" />
+                </div>
+
+                <div>
+                    <label class="form-label">Category</label>
+                    <InputText class="form-control" @bind-Value="_model.Category" />
+                </div>
+
+                <div>
+                    <label class="form-label">Unit</label>
+                    <InputText class="form-control" @bind-Value="_model.Unit" />
+                </div>
+
+                <div>
+                    <label class="form-label">Image URL</label>
+                    <InputText class="form-control" @bind-Value="_model.ImagePath" />
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">Paste an internet image link, or choose a local image below.</small>
+            </div>
+
+            <div class="action-row mt-3">
+                <button class="btn btn-secondary" @onclick="PickImageAsync">Choose Image</button>
+                <button class="btn btn-primary" @onclick="AddProductAsync">Add Product</button>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_model.ImagePath))
+            {
+                <div class="preview-box">
+                    <p class="mb-2">Preview</p>
+                    <img src="@GetImageSource(_model.ImagePath)" alt="Preview" class="preview-image" />
+                </div>
+            }
+        </div>
+    }
+
+    @if (activeTab == "manage")
+    {
+        <div class="tab-card">
+            <h5 class="mb-4">Manage Stock</h5>
+
+            @if (_products.Count == 0)
+            {
+                <p class="empty-text">No products available.</p>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table custom-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>SKU</th>
+                                <th>Quantity</th>
+                                <th>Stock</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var product in _products)
+                            {
+                                <tr>
+                                    <td>@product.Name</td>
+                                    <td>@product.Sku</td>
+                                    <td>@product.Quantity</td>
+                                    <td>
+                                        <div class="stock-actions">
+                                            <button class="btn btn-sm btn-success" @onclick="() => ChangeQuantityAsync(product.Id, 1)">+</button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => ChangeQuantityAsync(product.Id, -1)">-</button>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteProductAsync(product.Id)">Delete</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+@code {
+    private string activeTab = "list";
+    private string searchText = string.Empty;
+
+    private CreateProductDto _model = new()
+    {
+        Quantity = 1
+    };
+
+    private List<ProductDto> _products = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    private void SetTab(string tabName)
+    {
+        activeTab = tabName;
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        _products = await ProductService.GetAllAsync();
+    }
+
+    private async Task SearchProductsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            await LoadProductsAsync();
+            return;
+        }
+
+        _products = await ProductService.SearchAsync(searchText);
+    }
+
+    private async Task AddProductAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Name))
+            return;
+
+        await ProductService.AddAsync(_model);
+
+        _model = new CreateProductDto
+        {
+            Quantity = 1
+        };
+
+        await LoadProductsAsync();
+        activeTab = "list";
+    }
+
+    private async Task ChangeQuantityAsync(Guid id, int delta)
+    {
+        await ProductService.UpdateQuantityAsync(id, delta);
+        await LoadProductsAsync();
+    }
+
+    private async Task DeleteProductAsync(Guid id)
+    {
+        await ProductService.DeleteAsync(id);
+        await LoadProductsAsync();
+    }
+
+    private async Task PickImageAsync()
+    {
+        var file = await FilePicker.Default.PickAsync(new PickOptions
+        {
+            PickerTitle = "Select product image",
+            FileTypes = FilePickerFileType.Images
+        });
+
+        if (file is null)
+            return;
+
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var localPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+        await using var sourceStream = await file.OpenReadAsync();
+        await using var destinationStream = File.Create(localPath);
+        await sourceStream.CopyToAsync(destinationStream);
+
+        _model.ImagePath = localPath;
+    }
+
+    private string GetImageSource(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "";
+
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        if (File.Exists(path))
+        {
+            var bytes = File.ReadAllBytes(path);
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+
+            var mime = ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                _ => "application/octet-stream"
+            };
+
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+
+        return "";
+    }
+}

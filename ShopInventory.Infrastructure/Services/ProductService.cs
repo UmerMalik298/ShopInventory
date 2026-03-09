@@ -11,6 +11,14 @@ namespace ShopInventory.Infrastructure.Services
 
         public ProductService(IDbContext db) => _db = db;
 
+        public async Task DeleteAsync(Guid id)
+        {
+            var product = await _db.Product.FindAsync(id);
+            if (product is null) return;
+
+            _db.Product.Remove(product);
+            await _db.SaveChangesAsync();
+        }
         public async Task<List<ProductDto>> GetAllAsync()
         {
             return await _db.Product
@@ -62,7 +70,6 @@ namespace ShopInventory.Infrastructure.Services
             await _db.SaveChangesAsync();
         }
 
-        // ── helpers ────────────────────────────────────────────────────
         private static ProductDto ToDto(Product p) => new()
         {
             Id = p.Id,
