@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ShopInventory.Domain.Entities.AppInformation;
 using ShopInventory.Domain.Entities.Products;
+using ShopInventory.Domain.Entities.Sales;
 using ShopInventory.Domain.Entities.SyncQueueItems;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,9 @@ namespace ShopInventory.Application.Interfaces
     {
         DbSet<AppInfo> AppInfo { get; }
         DbSet<Product> Product { get; }
+
+        DbSet<ProductVariant> ProductVariant { get; }
+        DbSet<Sale> Sale { get; }
         DbSet<SyncQueueItem> SyncQueueItem { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

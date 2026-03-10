@@ -1,14 +1,16 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using ShopInventory.Application.Interfaces;
+using ShopInventory.Application.Services;
+using ShopInventory.Infrastructure.Configuration;
+using ShopInventory.Infrastructure.Services;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using ShopInventory.Application.Interfaces;
-using ShopInventory.Infrastructure.Services;
-using ShopInventory.Infrastructure.Configuration;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 namespace ShopInventory.Infrastructure.Configuration
 {
     public static class DependencyInjection
@@ -19,6 +21,10 @@ namespace ShopInventory.Infrastructure.Configuration
 
 
             services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<IProductVariantService, ProductVariantService>();
+            services.AddScoped<ISyncService, SyncService>();
+            services.AddScoped<ISaleService, SaleService>();
+
             return services;
         }
     }

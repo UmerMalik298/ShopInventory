@@ -12,5 +12,12 @@ namespace ShopInventory.Domain.Entities.Common
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public bool IsActive { get; set; } = true;
+
+
+
+        // Sync tracking
+        public bool IsSynced { get; set; } = false;
+        public DateTime? LastSyncedAt { get; set; }
+        public bool IsDeleted { get; set; } = false;
     }
 }

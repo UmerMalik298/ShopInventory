@@ -1,10 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
-using ShopInventory.Infrastructure.Data;
+using Microsoft.Extensions.Logging;
+using ShopInventory.Application.Interfaces;
 using ShopInventory.Infrastructure;
 using ShopInventory.Infrastructure.Configuration;
+using ShopInventory.Infrastructure.Data;
 namespace ShopInventory.App;
 
 public static class MauiProgram
@@ -51,12 +52,15 @@ public static class MauiProgram
       
         var app = builder.Build();
 
-       
+
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            db.Database.EnsureCreated();
             db.Database.Migrate();
+
+            // Auto-sync in background if online
+            var sync = scope.ServiceProvider.GetRequiredService<ISyncService>();
+            _ = Task.Run(async () => await sync.SyncAsync());
         }
 
         return app;

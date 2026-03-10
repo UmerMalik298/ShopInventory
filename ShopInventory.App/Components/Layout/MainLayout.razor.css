@@ -1,27 +1,28 @@
 .app-shell {
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr); /* was 280px */
     min-height: 100vh;
-    background: #f5f7fb;
+    background: #f1f5f9; /* slightly cooler */
 }
 
 .sidebar {
-    background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
-    border-right: 1px solid rgba(255,255,255,0.06);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background: #ffffff;
+    border-right: 1px solid #e2e8f0;
     padding: 20px 16px;
 }
 
 .main-content {
-    padding: 24px;
+    padding: 32px;
     overflow: auto;
 }
 
 .content-wrap {
-    background: #ffffff;
-    min-height: calc(100vh - 48px);
-    border-radius: 24px;
-    padding: 28px;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    min-height: calc(100vh - 56px);
+    padding: 0;
+    background: transparent;
 }
 
 @media (max-width: 900px) {
@@ -30,16 +31,18 @@
     }
 
     .sidebar {
+        position: relative;
+        height: auto;
         padding: 14px;
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
     }
 
     .main-content {
-        padding: 14px;
+        padding: 16px;
     }
 
     .content-wrap {
         min-height: auto;
-        border-radius: 18px;
-        padding: 18px;
     }
 }

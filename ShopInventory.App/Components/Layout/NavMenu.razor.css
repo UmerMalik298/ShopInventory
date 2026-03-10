@@ -1,99 +1,95 @@
 .nav-shell {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 40px);
-    color: #e5eefc;
+    height: 100%;
+    color: #0f172a;
+    font-family: 'DM Sans', sans-serif;
 }
 
 .brand-box {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 10px 8px 26px 8px;
-    margin-bottom: 18px;
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 28px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
 }
 
 .brand-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    background: rgba(255,255,255,0.14);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #0f172a;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #ffffff;
+    font-size: 16px;
     font-weight: 700;
-    font-size: 20px;
-    color: #fff;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+    letter-spacing: -0.5px;
 }
 
 .brand-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
-    color: #ffffff;
-    line-height: 1.1;
+    color: #0f172a;
+    letter-spacing: -0.3px;
 }
 
 .brand-subtitle {
-    font-size: 13px;
-    color: #c7d2fe;
-    margin-top: 5px;
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 2px;
 }
 
 .nav-links {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    margin-top: 8px;
+    gap: 4px;
 }
 
 ::deep a.nav-item {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     width: 100%;
+    padding: 11px 14px;
+    border-radius: 12px;
     text-decoration: none;
-    color: #e2e8f0;
-    padding: 16px 18px;
-    border-radius: 18px;
-    font-weight: 600;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.08);
-    transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease, color 0.22s ease;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
     box-sizing: border-box;
 }
 
     ::deep a.nav-item:hover {
-        transform: translateX(6px);
-        background: rgba(255,255,255,0.14);
-        color: #ffffff;
-        box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+        background: #f1f5f9;
+        color: #0f172a;
     }
 
     ::deep a.nav-item.active {
-        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        background: #0f172a;
         color: #ffffff;
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
-        border: 1px solid rgba(255,255,255,0.10);
     }
 
         ::deep a.nav-item.active .nav-dot {
-            background: #ffffff;
-            transform: scale(1.15);
+            background: #38bdf8;
         }
 
 .nav-dot {
-    width: 12px;
-    height: 12px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: #93c5fd;
+    background: #cbd5e1;
     flex-shrink: 0;
-    transition: transform 0.22s ease, background 0.22s ease;
 }
 
 .nav-text {
-    font-size: 15px;
-    letter-spacing: 0.2px;
+    font-size: 14px;
+    letter-spacing: 0;
 }
 
 .nav-footer {
@@ -102,32 +98,28 @@
 }
 
 .footer-card {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 18px;
-    padding: 16px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
 }
 
 .footer-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 6px;
+    color: #0f172a;
+    margin-bottom: 4px;
 }
 
 .footer-text {
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
-    color: #dbeafe;
+    color: #94a3b8;
 }
 
 @media (max-width: 900px) {
     .nav-shell {
-        min-height: auto;
-    }
-
-    .nav-links {
-        flex-direction: column;
+        height: auto;
     }
 
     .nav-footer {

@@ -21,5 +21,10 @@ namespace ShopInventory.Domain.Entities.Products
 
         public int Quantity { get; set; } = 0;
         public string? ImagePath { get; set; }
+
+        public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
+        public bool HasVariants { get; set; } = false;
+
+    
     }
 }

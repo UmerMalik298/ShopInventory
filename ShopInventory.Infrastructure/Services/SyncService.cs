@@ -1,50 +1,89 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ShopInventory.Application.Interfaces;
-using ShopInventory.Domain.Entities.Enums;
+using ShopInventory.Infrastructure.Data;
 
 namespace ShopInventory.Infrastructure.Services
 {
-    public class SyncService
+    public class SyncService : ISyncService
     {
-        private readonly IDbContext _db;
-        private readonly HttpClient _http;
+        private readonly ApplicationDbContext _db;
 
-        public SyncService(IDbContext db, HttpClient http)
+        public SyncService(ApplicationDbContext db)
         {
             _db = db;
-            _http = http;
         }
 
-        public async Task SyncPendingProducts()
+        public async Task<bool> IsOnlineAsync()
         {
-            var pendingItems = await _db.SyncQueueItem
-                .Where(x => x.SyncStatusId == (int)SyncStatus.Pending)
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                var response = await client.GetAsync("https://www.google.com");
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task SyncAsync()
+        {
+            if (!await IsOnlineAsync()) return;
+
+            // Phase 1: push unsynced local changes to Supabase
+            await PushUnsyncedProductsAsync();
+            await PushUnsyncedVariantsAsync();
+
+            // Phase 2: pull changes from Supabase into local
+            // (build this when Supabase is ready)
+        }
+
+        private async Task PushUnsyncedProductsAsync()
+        {
+            var unsynced = await _db.Product
+                .IgnoreQueryFilters()
+                .Where(p => !p.IsSynced)
                 .ToListAsync();
 
-            foreach (var item in pendingItems)
+            foreach (var product in unsynced)
             {
-                var response = await _http.PostAsync(
-                    "api/sync/product",
-                    new StringContent(item.PayloadJson, Encoding.UTF8, "application/json")
-                );
+                try
+                {
+                    // TODO: call Supabase API here when ready
+                    // await _supabase.From<Product>().Upsert(product);
 
-                if (response.IsSuccessStatusCode)
-                {
-                    item.SyncStatusId = (int)SyncStatus.Synced;
+                    product.IsSynced = true;
+                    product.LastSyncedAt = DateTime.UtcNow;
                 }
-                else
+                catch
                 {
-                    item.AttemptCount++;
+                    // leave IsSynced = false, retry next time
                 }
             }
 
             await _db.SaveChangesAsync();
         }
-    }
 
+        private async Task PushUnsyncedVariantsAsync()
+        {
+            var unsynced = await _db.ProductVariant
+                .IgnoreQueryFilters()
+                .Where(v => !v.IsSynced)
+                .ToListAsync();
+
+            foreach (var variant in unsynced)
+            {
+                try
+                {
+                    // TODO: call Supabase API here when ready
+                    variant.IsSynced = true;
+                    variant.LastSyncedAt = DateTime.UtcNow;
+                }
+                catch { }
+            }
+
+            await _db.SaveChangesAsync();
+        }
+    }
 }

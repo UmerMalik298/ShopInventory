@@ -1,8 +1,9 @@
-@page "/products"
+﻿@page "/products"
 @using ShopInventory.Application.DTOs
 @using ShopInventory.Application.Interfaces
 @using Microsoft.Maui.Storage
 @inject IProductService ProductService
+@using ShopInventory.App.Components.Layout
 
 <h3 class="page-title">Products</h3>
 
@@ -12,11 +13,9 @@
         <button class="tab-btn @(activeTab == "list" ? "active" : "")" @onclick='() => SetTab("list")'>
             All Products
         </button>
-
         <button class="tab-btn @(activeTab == "add" ? "active" : "")" @onclick='() => SetTab("add")'>
             Add Product
         </button>
-
         <button class="tab-btn @(activeTab == "manage" ? "active" : "")" @onclick='() => SetTab("manage")'>
             Manage Stock
         </button>
@@ -36,35 +35,25 @@
 
             @if (_products.Count == 0)
             {
-                <p class="empty-text">No products found.</p>
+                <div class="empty-state">
+                    <span>📦</span>
+                    <p>No products found. Add your first product!</p>
+                </div>
             }
             else
             {
                 <div class="products-grid">
                     @foreach (var product in _products)
                     {
-                        <div class="product-card">
-                            @if (!string.IsNullOrWhiteSpace(product.ImagePath))
-                            {
-                                <img src="@GetImageSource(product.ImagePath)"
-                                     alt="@product.Name"
-                                     class="product-image" />
-                            }
-                            else
-                            {
-                                <div class="image-placeholder">No Image</div>
-                            }
-
-                            <div class="product-body">
-                                <h5>@product.Name</h5>
-                                <p><strong>SKU:</strong> @product.Sku</p>
-                                <p><strong>Sale Price:</strong> @product.SalePrice</p>
-                                <p><strong>Cost Price:</strong> @product.CostPrice</p>
-                                <p><strong>Quantity:</strong> @product.Quantity</p>
-                                <p><strong>Category:</strong> @product.Category</p>
-                                <p><strong>Unit:</strong> @product.Unit</p>
-                            </div>
-                        </div>
+                        <ProductCard ProductId="@product.Id"
+                                     Name="@product.Name"
+                                     Sku="@product.Sku"
+                                     SalePrice="@product.SalePrice.ToString("F2")"
+                                     CostPrice="@product.CostPrice.ToString("F2")"
+                                     Quantity="@product.Quantity"
+                                     Category="@(product.Category ?? "")"
+                                     Unit="@(product.Unit ?? "")"
+                                     ImageUrl="@GetImageSource(product.ImagePath)" />
                     }
                 </div>
             }
@@ -78,43 +67,36 @@
 
             <div class="form-grid">
                 <div>
-                    <label class="form-label">Name</label>
-                    <InputText class="form-control" @bind-Value="_model.Name" />
+                    <label class="form-label">Name <span class="required">*</span></label>
+                    <InputText class="form-control" @bind-Value="_model.Name" placeholder="e.g. Car Rim" />
                 </div>
-
                 <div>
                     <label class="form-label">SKU</label>
-                    <InputText class="form-control" @bind-Value="_model.Sku" />
+                    <InputText class="form-control" @bind-Value="_model.Sku" placeholder="e.g. RIM-001" />
                 </div>
-
                 <div>
                     <label class="form-label">Sale Price</label>
                     <InputNumber class="form-control" @bind-Value="_model.SalePrice" />
                 </div>
-
                 <div>
                     <label class="form-label">Cost Price</label>
                     <InputNumber class="form-control" @bind-Value="_model.CostPrice" />
                 </div>
-
                 <div>
                     <label class="form-label">Quantity</label>
                     <InputNumber class="form-control" @bind-Value="_model.Quantity" />
                 </div>
-
                 <div>
                     <label class="form-label">Category</label>
-                    <InputText class="form-control" @bind-Value="_model.Category" />
+                    <InputText class="form-control" @bind-Value="_model.Category" placeholder="e.g. Tyres" />
                 </div>
-
                 <div>
                     <label class="form-label">Unit</label>
-                    <InputText class="form-control" @bind-Value="_model.Unit" />
+                    <InputText class="form-control" @bind-Value="_model.Unit" placeholder="e.g. piece, kg" />
                 </div>
-
                 <div>
                     <label class="form-label">Image URL</label>
-                    <InputText class="form-control" @bind-Value="_model.ImagePath" />
+                    <InputText class="form-control" @bind-Value="_model.ImagePath" placeholder="Paste link or pick below" />
                 </div>
             </div>
 
@@ -154,7 +136,7 @@
                             <tr>
                                 <th>Name</th>
                                 <th>SKU</th>
-                                <th>Quantity</th>
+                                <th>Qty</th>
                                 <th>Stock</th>
                                 <th>Delete</th>
                             </tr>
@@ -164,12 +146,12 @@
                             {
                                 <tr>
                                     <td>@product.Name</td>
-                                    <td>@product.Sku</td>
+                                    <td><span class="sku-pill">@product.Sku</span></td>
                                     <td>@product.Quantity</td>
                                     <td>
                                         <div class="stock-actions">
                                             <button class="btn btn-sm btn-success" @onclick="() => ChangeQuantityAsync(product.Id, 1)">+</button>
-                                            <button class="btn btn-sm btn-danger" @onclick="() => ChangeQuantityAsync(product.Id, -1)">-</button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => ChangeQuantityAsync(product.Id, -1)">−</button>
                                         </div>
                                     </td>
                                     <td>
@@ -189,12 +171,7 @@
 @code {
     private string activeTab = "list";
     private string searchText = string.Empty;
-
-    private CreateProductDto _model = new()
-    {
-        Quantity = 1
-    };
-
+    private CreateProductDto _model = new() { Quantity = 1 };
     private List<ProductDto> _products = new();
 
     protected override async Task OnInitializedAsync()
@@ -202,10 +179,7 @@
         await LoadProductsAsync();
     }
 
-    private void SetTab(string tabName)
-    {
-        activeTab = tabName;
-    }
+    private void SetTab(string tab) => activeTab = tab;
 
     private async Task LoadProductsAsync()
     {
@@ -214,27 +188,15 @@
 
     private async Task SearchProductsAsync()
     {
-        if (string.IsNullOrWhiteSpace(searchText))
-        {
-            await LoadProductsAsync();
-            return;
-        }
-
+        if (string.IsNullOrWhiteSpace(searchText)) { await LoadProductsAsync(); return; }
         _products = await ProductService.SearchAsync(searchText);
     }
 
     private async Task AddProductAsync()
     {
-        if (string.IsNullOrWhiteSpace(_model.Name))
-            return;
-
+        if (string.IsNullOrWhiteSpace(_model.Name)) return;
         await ProductService.AddAsync(_model);
-
-        _model = new CreateProductDto
-        {
-            Quantity = 1
-        };
-
+        _model = new CreateProductDto { Quantity = 1 };
         await LoadProductsAsync();
         activeTab = "list";
     }
@@ -258,9 +220,7 @@
             PickerTitle = "Select product image",
             FileTypes = FilePickerFileType.Images
         });
-
-        if (file is null)
-            return;
+        if (file is null) return;
 
         var extension = Path.GetExtension(file.FileName);
         var fileName = $"{Guid.NewGuid()}{extension}";
@@ -269,39 +229,29 @@
         await using var sourceStream = await file.OpenReadAsync();
         await using var destinationStream = File.Create(localPath);
         await sourceStream.CopyToAsync(destinationStream);
-
         _model.ImagePath = localPath;
     }
 
     private string GetImageSource(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            return "";
-
+        if (string.IsNullOrWhiteSpace(path)) return "";
         if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
             return path;
-        }
-
         if (File.Exists(path))
         {
             var bytes = File.ReadAllBytes(path);
             var ext = Path.GetExtension(path).ToLowerInvariant();
-
             var mime = ext switch
             {
                 ".png" => "image/png",
-                ".jpg" => "image/jpeg",
-                ".jpeg" => "image/jpeg",
+                ".jpg" or ".jpeg" => "image/jpeg",
                 ".webp" => "image/webp",
                 ".gif" => "image/gif",
                 _ => "application/octet-stream"
             };
-
             return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
         }
-
         return "";
     }
 }
