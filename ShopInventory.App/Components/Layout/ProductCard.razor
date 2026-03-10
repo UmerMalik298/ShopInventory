@@ -220,8 +220,11 @@
                                             disabled="@(v.Quantity == 0)">
                                         Sell
                                     </button>
+                                    @{
+                                        var variantId = v.Id; var variantName = v.Name;
+                                    }
                                     <button class="vr-delete"
-                                            @onclick="() => DeleteVariantAsync(v.Id)"
+                                            @onclick="() => AskDeleteVariant(variantId, variantName)"
                                             @onclick:stopPropagation="true">
                                         ✕
                                     </button>
@@ -307,6 +310,15 @@
 
         </div>
     </div>
+
+    <ConfirmDialog
+    Visible="_confirmVariantVisible"
+    Title="Remove Variant"
+    Message="@($"Remove '{_pendingVariantName}'? All sales history for this variant will remain.")"
+    ConfirmText="Yes, Remove"
+    IsDanger="true"
+    OnConfirm="ConfirmDeleteVariantAsync"
+    OnCancel="CancelDeleteVariant" />
 }
 
 @code {
@@ -485,5 +497,28 @@
         await VariantService.DeleteAsync(id);
         _variants = await VariantService.GetByProductIdAsync(ProductId);
         _variantCount = _variants.Count;
+    }
+    private bool _confirmVariantVisible = false;
+    private Guid _pendingVariantId;
+    private string _pendingVariantName = "";
+
+    private void AskDeleteVariant(Guid id, string name)
+    {
+        _pendingVariantId = id;
+        _pendingVariantName = name;
+        _confirmVariantVisible = true;
+    }
+
+    private async Task ConfirmDeleteVariantAsync()
+    {
+        await VariantService.DeleteAsync(_pendingVariantId);
+        _variants = await VariantService.GetByProductIdAsync(ProductId);
+        _variantCount = _variants.Count;
+        _confirmVariantVisible = false;
+    }
+
+    private void CancelDeleteVariant()
+    {
+        _confirmVariantVisible = false;
     }
 }

@@ -1,0 +1,85 @@
+﻿@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@using Microsoft.Maui.Storage
+@inject IProductService ProductService
+
+<div class="tab-card">
+    <div class="section-top">
+        <h5>All Products</h5>
+        <InputText class="form-control search-box"
+                   placeholder="Search by name, SKU or category"
+                   @bind-Value="searchText" />
+        <button class="btn btn-dark" @onclick="SearchProductsAsync">Search</button>
+        <button class="btn btn-outline-secondary" @onclick="LoadProductsAsync">Reset</button>
+    </div>
+
+    @if (_products.Count == 0)
+    {
+        <div class="empty-state">
+            <span>📦</span>
+            <p>No products found. Add your first product!</p>
+        </div>
+    }
+    else
+    {
+        <div class="products-grid">
+            @foreach (var product in _products)
+            {
+                <ProductCard
+                    ProductId="@product.Id"
+                    Name="@product.Name"
+                    Sku="@product.Sku"
+                    SalePrice="@product.SalePrice.ToString("F2")"
+                    CostPrice="@product.CostPrice.ToString("F2")"
+                    Quantity="@product.Quantity"
+                    Category="@(product.Category ?? "")"
+                    Unit="@(product.Unit ?? "")"
+                    ImageUrl="@GetImageSource(product.ImagePath)" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string searchText = string.Empty;
+    private List<ProductDto> _products = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        _products = await ProductService.GetAllAsync();
+    }
+
+    private async Task SearchProductsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) { await LoadProductsAsync(); return; }
+        _products = await ProductService.SearchAsync(searchText);
+    }
+
+    private string GetImageSource(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "";
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return path;
+        if (File.Exists(path))
+        {
+            var bytes = File.ReadAllBytes(path);
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            var mime = ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                _ => "application/octet-stream"
+            };
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+        return "";
+    }
+}

@@ -1,0 +1,101 @@
+﻿@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@inject IProductService ProductService
+
+<div class="tab-card">
+    <h5 class="mb-4">Manage Stock</h5>
+
+    @if (_products.Count == 0)
+    {
+        <p class="empty-text">No products available.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table custom-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>SKU</th>
+                        <th>Qty</th>
+                        <th>Stock</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in _products)
+                    {
+                        <tr>
+                            <td>@product.Name</td>
+                            <td><span class="sku-pill">@product.Sku</span></td>
+                            <td>@product.Quantity</td>
+                            <td>
+                                <div class="stock-actions">
+                                    <button class="btn btn-sm btn-success" @onclick="() => ChangeQuantityAsync(product.Id, 1)">+</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => ChangeQuantityAsync(product.Id, -1)">−</button>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => AskDelete(product)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<ConfirmDialog Visible="_confirmVisible"
+               Title="Delete Product"
+               Message="@($"Are you sure you want to delete '{_pendingDelete?.Name}'? This cannot be undone.")"
+               ConfirmText="Yes, Delete"
+               IsDanger="true"
+               OnConfirm="ConfirmDeleteAsync"
+               OnCancel="CancelDelete" />
+
+@code {
+    private List<ProductDto> _products = new();
+    private bool _confirmVisible = false;
+    private ProductDto? _pendingDelete = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _products = await ProductService.GetAllAsync();
+    }
+
+    private async Task ChangeQuantityAsync(Guid id, int delta)
+    {
+        await ProductService.UpdateQuantityAsync(id, delta);
+        await LoadAsync();
+    }
+
+    private void AskDelete(ProductDto product)
+    {
+        _pendingDelete = product;
+        _confirmVisible = true;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_pendingDelete is null) return;
+        await ProductService.DeleteAsync(_pendingDelete.Id);
+        _confirmVisible = false;
+        _pendingDelete = null;
+        await LoadAsync();
+    }
+
+    private void CancelDelete()
+    {
+        _confirmVisible = false;
+        _pendingDelete = null;
+    }
+}
