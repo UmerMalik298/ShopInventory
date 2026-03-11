@@ -1,7 +1,207 @@
 ﻿@page "/"
-@using ShopInventory.Infrastructure.Data
-@inject ApplicationDbContext DbContext
+@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@inject IDashboardService DashboardService
 
-<h1>Hello, world!</h1>
+<div class="dash-shell">
 
-Welcome to your new app.
+    @if (_data is null)
+    {
+        <div class="dash-loading">
+            <div class="dash-spinner"></div>
+            <p>Loading dashboard...</p>
+        </div>
+    }
+    else
+    {
+        <div class="dash-header">
+            <div>
+                <h1 class="dash-title">Dashboard</h1>
+                <p class="dash-sub">@(DateTime.Now.ToString("dddd, MMMM dd yyyy"))</p>
+            </div>
+            <button class="dash-refresh" @onclick="LoadAsync">↻ Refresh</button>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total Products</span>
+                    <strong class="kpi-val">@_data.TotalProducts</strong>
+                </div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Today Revenue</span>
+                    <strong class="kpi-val">@(_data.TodayRevenue.ToString("F0"))</strong>
+                </div>
+            </div>
+            <div class="kpi-card emerald">
+                <div class="kpi-icon">📈</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Today Profit</span>
+                    <strong class="kpi-val">@(_data.TodayProfit.ToString("F0"))</strong>
+                </div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-icon">🛒</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Units Sold Today</span>
+                    <strong class="kpi-val">@_data.TodaySalesCount</strong>
+                </div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="kpi-icon">💵</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total Revenue</span>
+                    <strong class="kpi-val">@(_data.TotalRevenue.ToString("F0"))</strong>
+                </div>
+            </div>
+            <div class="kpi-card red">
+                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Out of Stock</span>
+                    <strong class="kpi-val">@_data.OutOfStockCount</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+
+            <div class="chart-card wide">
+                <h4 class="chart-title">Revenue — Last 7 Days</h4>
+                @if (_data.Last7Days.All(d => d.Revenue == 0))
+                {
+                    <div class="chart-empty">No sales recorded yet</div>
+                }
+                else
+                {
+                    var maxRev = _data.Last7Days.Max(d => d.Revenue);
+                    <div class="bar-chart">
+                        @foreach (var day in _data.Last7Days)
+                        {
+                            var heightPct = maxRev > 0 ? (double)day.Revenue / (double)maxRev * 100 : 0;
+                            var profitPct = maxRev > 0 ? (double)day.Profit / (double)maxRev * 100 : 0;
+                            var hStyle = "height:" + heightPct.ToString("F1") + "%";
+                            var pStyle = "height:" + profitPct.ToString("F1") + "%";
+                            var dayLabel = day.Day.Split(' ').Length > 1 ? day.Day.Split(' ')[1] : day.Day;
+                            var revStr = day.Revenue.ToString("F0");
+                            var profStr = day.Profit.ToString("F0");
+                            <div class="bar-col">
+                                <div class="bar-wrap">
+                                    <div class="bar-tooltip">
+                                        <span>Rev: @revStr</span>
+                                        <span>Profit: @profStr</span>
+                                        <span>Units: @day.UnitsSold</span>
+                                    </div>
+                                    <div class="bar revenue" style="@hStyle"></div>
+                                    <div class="bar profit" style="@pStyle"></div>
+                                </div>
+                                <span class="bar-label">@dayLabel</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="bar-legend">
+                        <span class="legend-dot revenue"></span><span>Revenue</span>
+                        <span class="legend-dot profit"></span><span>Profit</span>
+                    </div>
+                }
+            </div>
+
+            <div class="chart-card">
+                <h4 class="chart-title">Top Products</h4>
+                @if (_data.TopProducts.Count == 0)
+                {
+                    <div class="chart-empty">No sales yet</div>
+                }
+                else
+                {
+                    var maxUnits = _data.TopProducts.Max(p => p.UnitsSold);
+                    <div class="top-products">
+                        @foreach (var tp in _data.TopProducts)
+                        {
+                            var pct = maxUnits > 0 ? (double)tp.UnitsSold / maxUnits * 100 : 0;
+                            var wStyle = "width:" + pct.ToString("F1") + "%";
+                            var revStr = tp.Revenue.ToString("F0");
+                            <div class="tp-row">
+                                <div class="tp-info">
+                                    <span class="tp-name">@tp.Name</span>
+                                    <span class="tp-units">x@tp.UnitsSold</span>
+                                </div>
+                                <div class="tp-bar-wrap">
+                                    <div class="tp-bar" style="@wStyle"></div>
+                                </div>
+                                <span class="tp-rev">@revStr</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+        </div>
+
+        @if (_data.LowStockItems.Count > 0)
+        {
+            <div class="low-stock-card">
+                <div class="ls-header">
+                    <h4 class="chart-title">⚠️ Stock Alerts</h4>
+                    <span class="ls-count">@_data.LowStockItems.Count item(s) need attention</span>
+                </div>
+                <div class="ls-grid">
+                    @foreach (var item in _data.LowStockItems)
+                    {
+                        var itemClass = item.Status == "Out of Stock" ? "ls-item out" : "ls-item low";
+                        var itemQty = item.Quantity.ToString();
+                        <div class="@itemClass">
+                            <div class="ls-name">
+                                @item.Name
+                                @if (!string.IsNullOrWhiteSpace(item.VariantName))
+                                {
+                                    <span class="ls-variant">@item.VariantName</span>
+                                }
+                            </div>
+                            <div class="ls-right">
+                                <span class="ls-qty">x@itemQty</span>
+                                <span class="ls-badge">@item.Status</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="summary-footer">
+            <div class="sf-box">
+                <span>Total Profit</span>
+                <strong>@(_data.TotalProfit.ToString("F2"))</strong>
+            </div>
+            <div class="sf-box">
+                <span>Variants Tracked</span>
+                <strong>@_data.TotalVariants</strong>
+            </div>
+            <div class="sf-box">
+                <span>Low Stock Items</span>
+                <strong>@_data.LowStockCount</strong>
+            </div>
+        </div>
+
+    }
+
+</div>
+
+@code {
+    private DashboardDto? _data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _data = null;
+        StateHasChanged();
+        _data = await DashboardService.GetDashboardAsync();
+    }
+}

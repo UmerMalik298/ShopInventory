@@ -20,14 +20,10 @@ namespace ShopInventory.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Product>()
-                .HasQueryFilter(p => !p.IsDeleted);
-
-            modelBuilder.Entity<ProductVariant>()
-                .HasQueryFilter(v => !v.IsDeleted);
-
-            modelBuilder.Entity<Sale>()
-                .HasQueryFilter(s => !s.IsDeleted);
+            // REMOVE these three lines:
+            modelBuilder.Entity<Product>().HasQueryFilter(p => p.IsDeleted == false);
+            modelBuilder.Entity<ProductVariant>().HasQueryFilter(v => v.IsDeleted == false);
+            modelBuilder.Entity<Sale>().HasQueryFilter(s => s.IsDeleted == false);
 
             modelBuilder.Entity<ProductVariant>()
                 .HasOne(v => v.Product)

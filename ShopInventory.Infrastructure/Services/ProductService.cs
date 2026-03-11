@@ -22,22 +22,44 @@ namespace ShopInventory.Infrastructure.Services
         public async Task<List<ProductDto>> GetAllAsync()
         {
             return await _db.Product
-                .Where(p => p.IsActive)
-                .OrderBy(p => p.Name)
-                .Select(p => ToDto(p))
+                .Where(p => p.IsDeleted == false)
+                .Select(p => new ProductDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Sku = p.Sku,
+                    CostPrice = p.CostPrice,
+                    SalePrice = p.SalePrice,
+                    Category = p.Category,
+                    Unit = p.Unit,
+                    Quantity = p.Quantity,
+                    ImagePath = p.ImagePath,
+                    HasVariants = p.HasVariants
+                })
                 .ToListAsync();
         }
 
         public async Task<List<ProductDto>> SearchAsync(string query)
         {
-            var q = query.Trim().ToLower();
+            var q = query.ToLower();
             return await _db.Product
-                .Where(p => p.IsActive && (
-                    p.Name.ToLower().Contains(q) ||
-                    p.Sku.ToLower().Contains(q) ||
-                    (p.Category != null && p.Category.ToLower().Contains(q))))
-                .OrderBy(p => p.Name)
-                .Select(p => ToDto(p))
+                .Where(p => p.IsDeleted == false &&
+                       (p.Name.ToLower().Contains(q) ||
+                        p.Sku.ToLower().Contains(q) ||
+                        (p.Category != null && p.Category.ToLower().Contains(q))))
+                .Select(p => new ProductDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Sku = p.Sku,
+                    CostPrice = p.CostPrice,
+                    SalePrice = p.SalePrice,
+                    Category = p.Category,
+                    Unit = p.Unit,
+                    Quantity = p.Quantity,
+                    ImagePath = p.ImagePath,
+                    HasVariants = p.HasVariants
+                })
                 .ToListAsync();
         }
 
@@ -45,14 +67,20 @@ namespace ShopInventory.Infrastructure.Services
         {
             var product = new Product
             {
+                Id = Guid.NewGuid(),
                 Name = dto.Name,
-                Sku = string.IsNullOrWhiteSpace(dto.Sku) ? GenerateSku(dto.Name) : dto.Sku,
-                SalePrice = dto.SalePrice,
+                Sku = dto.Sku,
                 CostPrice = dto.CostPrice,
+                SalePrice = dto.SalePrice,
+                Category = dto.Category,
+                Unit = dto.Unit,
                 Quantity = dto.Quantity,
                 ImagePath = dto.ImagePath,
-                Category = dto.Category,
-                Unit = dto.Unit
+                HasVariants = dto.HasVariants,
+                IsDeleted = false,   
+                IsSynced = false,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
             };
 
             _db.Product.Add(product);

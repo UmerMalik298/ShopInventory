@@ -44,13 +44,13 @@ public static class MauiProgram
 
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "shopinventory.db");
         System.Diagnostics.Debug.WriteLine("DB PATH = " + dbPath);
-
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlite($"Filename={dbPath}")
-        );
+            options.UseSqlite($"Filename={dbPath}"));
+        
 
-      
-        var app = builder.Build();
+
+
+                     var app = builder.Build();
 
 
         using (var scope = app.Services.CreateScope())

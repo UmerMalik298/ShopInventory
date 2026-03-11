@@ -16,14 +16,13 @@
         </button>
     </div>
 
-    @if (activeTab == "list")
-    {
-        <AllProducts />
-    }
+    <div style="display:@(activeTab == "list" ? "block" : "none")">
+        <AllProducts @ref="_allProducts" />
+    </div>
 
     @if (activeTab == "add")
     {
-        <AddProduct OnProductAdded="@(() => SetTab("list"))" />
+        <AddProduct OnProductAdded="@OnProductAdded" />
     }
 
     @if (activeTab == "manage")
@@ -34,5 +33,19 @@
 
 @code {
     private string activeTab = "list";
-    private void SetTab(string tab) => activeTab = tab;
+    private AllProducts? _allProducts;
+
+    private void SetTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private async Task OnProductAdded()
+    {
+        activeTab = "list";
+        StateHasChanged();
+        await Task.Delay(150);
+        if (_allProducts != null)
+            await _allProducts.LoadProductsAsync();
+    }
 }

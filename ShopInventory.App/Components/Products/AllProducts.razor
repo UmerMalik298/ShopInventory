@@ -4,20 +4,30 @@
 @inject IProductService ProductService
 
 <div class="tab-card">
+    <p style="background:yellow; padding:10px; font-size:13px;">DEBUG: @_debugMsg | Products: @_products.Count | Loading: @_loading</p>
     <div class="section-top">
         <h5>All Products</h5>
-        <InputText class="form-control search-box"
-                   placeholder="Search by name, SKU or category"
-                   @bind-Value="searchText" />
-        <button class="btn btn-dark" @onclick="SearchProductsAsync">Search</button>
-        <button class="btn btn-outline-secondary" @onclick="LoadProductsAsync">Reset</button>
+        <div class="search-wrap">
+            <input class="form-control search-box"
+                   placeholder="Search by name, SKU or category..."
+                   value="@searchText"
+                   @oninput="OnSearchInput" />
+            @if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                <button class="search-clear" @onclick="ClearSearch">✕</button>
+            }
+        </div>
     </div>
 
-    @if (_products.Count == 0)
+    @if (_loading)
+    {
+        <div class="products-loading">Loading...</div>
+    }
+    else if (_products.Count == 0)
     {
         <div class="empty-state">
             <span>📦</span>
-            <p>No products found. Add your first product!</p>
+            <p>@(string.IsNullOrWhiteSpace(searchText) ? "No products found. Add your first product!" : $"No results for \"{searchText}\"")</p>
         </div>
     }
     else
@@ -25,16 +35,21 @@
         <div class="products-grid">
             @foreach (var product in _products)
             {
+                var salePriceStr = product.SalePrice.ToString("F2");
+                var costPriceStr = product.CostPrice.ToString("F2");
+                var category = product.Category ?? "";
+                var unit = product.Unit ?? "";
+                var imageUrl = GetImageSource(product.ImagePath);
                 <ProductCard
                     ProductId="@product.Id"
                     Name="@product.Name"
                     Sku="@product.Sku"
-                    SalePrice="@product.SalePrice.ToString("F2")"
-                    CostPrice="@product.CostPrice.ToString("F2")"
+                    SalePrice="@salePriceStr"
+                    CostPrice="@costPriceStr"
                     Quantity="@product.Quantity"
-                    Category="@(product.Category ?? "")"
-                    Unit="@(product.Unit ?? "")"
-                    ImageUrl="@GetImageSource(product.ImagePath)" />
+                    Category="@category"
+                    Unit="@unit"
+                    ImageUrl="@imageUrl" />
             }
         </div>
     }
@@ -43,21 +58,74 @@
 @code {
     private string searchText = string.Empty;
     private List<ProductDto> _products = new();
-
-    protected override async Task OnInitializedAsync()
+    private bool _loading = true;
+    private System.Threading.CancellationTokenSource? _cts;
+    private string _debugMsg = "";
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            await LoadProductsAsync();
+        }
+    }
+
+    // public async Task LoadProductsAsync()
+    // {
+    //     _loading = true;
+    //     StateHasChanged();
+    //     await Task.Delay(50);
+    //     _products = await ProductService.GetAllAsync();
+    //     _loading = false;
+    //     StateHasChanged();
+    // }
+    public async Task LoadProductsAsync()
+    {
+        _loading = true;
+        _debugMsg = "Loading...";
+        StateHasChanged();
+        await Task.Delay(50);
+
+        try
+        {
+            var result = await ProductService.GetAllAsync();
+            _debugMsg = $"Service returned: {result.Count} products";
+            _products = result;
+        }
+        catch (Exception ex)
+        {
+            _debugMsg = $"ERROR: {ex.Message}";
+        }
+
+        _loading = false;
+        StateHasChanged();
+    }
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+
+        _cts?.Cancel();
+        _cts = new System.Threading.CancellationTokenSource();
+        var token = _cts.Token;
+
+        try { await Task.Delay(300, token); }
+        catch (TaskCanceledException) { return; }
+        if (token.IsCancellationRequested) return;
+
+        _loading = true;
+        StateHasChanged();
+
+        _products = string.IsNullOrWhiteSpace(searchText)
+            ? await ProductService.GetAllAsync()
+            : await ProductService.SearchAsync(searchText);
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task ClearSearch()
+    {
+        searchText = "";
         await LoadProductsAsync();
-    }
-
-    private async Task LoadProductsAsync()
-    {
-        _products = await ProductService.GetAllAsync();
-    }
-
-    private async Task SearchProductsAsync()
-    {
-        if (string.IsNullOrWhiteSpace(searchText)) { await LoadProductsAsync(); return; }
-        _products = await ProductService.SearchAsync(searchText);
     }
 
     private string GetImageSource(string? path)
