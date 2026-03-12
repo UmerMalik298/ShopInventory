@@ -17,7 +17,7 @@ namespace ShopInventory.Infrastructure.Services
         {
             try
             {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
                 var response = await client.GetAsync("https://www.google.com");
                 return response.IsSuccessStatusCode;
             }
