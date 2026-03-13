@@ -1,0 +1,62 @@
+﻿@using ShopInventory.Application.DTOs
+
+<div class="tab-card">
+    <h5 class="mb-4">Manage Stock</h5>
+
+    @if (Products.Count == 0)
+    {
+        <p class="empty-text">No products available.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table custom-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>SKU</th>
+                        <th>Qty</th>
+                        <th>Stock</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in Products)
+                    {
+                        <tr>
+                            <td>@product.Name</td>
+                            <td><span class="sku-pill">@product.Sku</span></td>
+                            <td>@product.Quantity</td>
+                            <td>
+                                <div class="stock-actions">
+                                    <button class="btn btn-sm btn-success"
+                                            @onclick="() => OnIncreaseQuantity.InvokeAsync(product.Id)">
+                                        +
+                                    </button>
+
+                                    <button class="btn btn-sm btn-danger"
+                                            @onclick="() => OnDecreaseQuantity.InvokeAsync(product.Id)">
+                                        −
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => OnDeleteProduct.InvokeAsync(product.Id)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<ProductDto> Products { get; set; } = new();
+    [Parameter] public EventCallback<Guid> OnIncreaseQuantity { get; set; }
+    [Parameter] public EventCallback<Guid> OnDecreaseQuantity { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteProduct { get; set; }
+}
