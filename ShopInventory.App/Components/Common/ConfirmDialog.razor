@@ -1,0 +1,43 @@
+﻿@if (IsOpen)
+{
+    <div class="cd-overlay" @onclick="HandleCancel">
+        <div class="cd-box" @onclick:stopPropagation="true">
+            <div class="cd-header">
+                <h3 class="cd-title">@Title</h3>
+                <button class="cd-close" @onclick="HandleCancel">✕</button>
+            </div>
+
+            <p class="cd-message">@Message</p>
+
+            <div class="cd-actions">
+                <button class="cd-btn cd-btn-light" @onclick="HandleCancel">@CancelText</button>
+                <button class="cd-btn @(IsDanger ? "cd-btn-danger" : "cd-btn-primary")"
+                        @onclick="HandleConfirm">
+                    @ConfirmText
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Please confirm";
+    [Parameter] public string Message { get; set; } = "Are you sure?";
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public bool IsDanger { get; set; } = false;
+
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task HandleConfirm()
+    {
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

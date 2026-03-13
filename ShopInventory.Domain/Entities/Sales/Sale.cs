@@ -20,5 +20,7 @@ namespace ShopInventory.Domain.Entities.Sales
         public decimal TotalProfit => (SalePriceAtTime - CostPriceAtTime) * QuantitySold;
         public DateTime SoldAt { get; set; } = DateTime.UtcNow;
         public string? Notes { get; set; }
+        public Guid? BillId { get; set; }
+        public string? BillNo { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ShopInventory.Application.Interfaces;
 using ShopInventory.Domain.Entities.AppInformation;
+using ShopInventory.Domain.Entities.Billing;
 using ShopInventory.Domain.Entities.Products;
 using ShopInventory.Domain.Entities.Sales;
 using ShopInventory.Domain.Entities.SyncQueueItems;
@@ -17,6 +18,9 @@ namespace ShopInventory.Infrastructure.Data
         public DbSet<ProductVariant> ProductVariant => Set<ProductVariant>();
         public DbSet<Sale> Sale => Set<Sale>();
         public DbSet<SyncQueueItem> SyncQueueItem => Set<SyncQueueItem>();
+
+        public DbSet<Bill> Bill => Set<Bill>();
+        public DbSet<BillItem> BillItem => Set<BillItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -39,6 +43,16 @@ namespace ShopInventory.Infrastructure.Data
             modelBuilder.Entity<Sale>()
                 .Ignore(s => s.TotalRevenue)
                 .Ignore(s => s.TotalProfit);
+
+            modelBuilder.Entity<Bill>()
+    .HasMany(b => b.Items)
+    .WithOne(i => i.Bill)
+    .HasForeignKey(i => i.BillId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Bill>()
+                .HasIndex(b => b.BillNo)
+                .IsUnique();
         }
     }
 }

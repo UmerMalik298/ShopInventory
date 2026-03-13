@@ -1,0 +1,72 @@
+﻿@using ShopInventory.Application.DTOs
+
+<div class="bill-card">
+    <h4 class="bill-card-title">Add Items</h4>
+
+    <div class="bill-form-grid">
+        <div>
+            <label>Product</label>
+            <select class="form-control" value="@SelectedProductId" @onchange="HandleProductChanged">
+                <option value="">Select product</option>
+                @foreach (var product in Products)
+                {
+                    <option value="@product.Id">@product.Name</option>
+                }
+            </select>
+        </div>
+
+        <div>
+            <label>Variant</label>
+            <select class="form-control" value="@SelectedVariantId" @onchange="HandleVariantChanged">
+                <option value="">No variant</option>
+                @foreach (var variant in Variants)
+                {
+                    <option value="@variant.Id">@variant.Name</option>
+                }
+            </select>
+        </div>
+
+        <div>
+            <label>Quantity</label>
+            <input class="form-control" type="number" min="1" value="@Quantity" @oninput="HandleQuantityChanged" />
+        </div>
+
+        <div class="bill-action-box">
+            <button class="btn btn-primary" @onclick="OnAddItem.InvokeAsync">Add To Bill</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<ProductDto> Products { get; set; } = new();
+    [Parameter] public List<ProductVariantDto> Variants { get; set; } = new();
+
+    [Parameter] public Guid? SelectedProductId { get; set; }
+    [Parameter] public Guid? SelectedVariantId { get; set; }
+    [Parameter] public int Quantity { get; set; } = 1;
+
+    [Parameter] public EventCallback<Guid?> OnProductChanged { get; set; }
+    [Parameter] public EventCallback<Guid?> OnVariantChanged { get; set; }
+    [Parameter] public EventCallback<int> OnQuantityChanged { get; set; }
+    [Parameter] public EventCallback OnAddItem { get; set; }
+
+    private async Task HandleProductChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        Guid? value = string.IsNullOrWhiteSpace(raw) ? null : Guid.Parse(raw);
+        await OnProductChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleVariantChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        Guid? value = string.IsNullOrWhiteSpace(raw) ? null : Guid.Parse(raw);
+        await OnVariantChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleQuantityChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+            await OnQuantityChanged.InvokeAsync(value);
+    }
+}

@@ -673,3 +673,45 @@
         .summary-box strong.sale {
             color: #16a34a;
         }
+
+
+.btn-toggle-section {
+    border: 1px solid #dbe3ef;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+    .btn-toggle-section:hover {
+        background: #f8fafc;
+    }
+
+.vr-delete {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid #dbe3ef;
+    background: #ffffff;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 16px;
+    transition: 0.2s ease;
+}
+
+    .vr-delete:hover {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #dc2626;
+    }
+.drawer-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
