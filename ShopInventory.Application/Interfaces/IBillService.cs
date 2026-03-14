@@ -1,4 +1,6 @@
 ﻿using ShopInventory.Application.DTOs;
+using ShopInventory.Domain.Entities.Billing;
+using ShopInventory.Domain.Entities.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,11 +11,11 @@ namespace ShopInventory.Application.Interfaces
 {
     public interface IBillService
     {
-        Task<BillDto> CreateAsync(CreateBillDto dto);
-        Task<List<BillDto>> GetAllAsync();
-        Task<BillDto?> GetByIdAsync(Guid id);
-        Task MarkPaidAsync(Guid billId);
-        Task MarkUnpaidAsync(Guid billId);
-        Task<string> GenerateReceiptHtmlAsync(Guid billId);
+        Task<List<Bill>> GetAllBillsAsync();
+        Task<Bill?> GetBillByIdAsync(Guid id);
+        Task<Bill> CreateBillAsync(Bill bill);
+        Task UpdatePaymentStatusAsync(Guid billId, PaymentStatus status);
+        Task DeleteBillAsync(Guid id);
+        string GenerateBillNo();
     }
 }

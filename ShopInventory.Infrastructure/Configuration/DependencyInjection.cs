@@ -24,6 +24,7 @@ namespace ShopInventory.Infrastructure.Configuration
             services.AddScoped<IProductVariantService, ProductVariantService>();
             services.AddScoped<ISyncService, SyncService>();
             services.AddScoped<ISaleService, SaleService>();
+            services.AddScoped<IBillService, BillService>();
 
             return services;
         }

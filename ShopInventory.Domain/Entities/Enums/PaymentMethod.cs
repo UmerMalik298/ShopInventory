@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace ShopInventory.Domain.Entities.Enums
 {
-    public enum PaymentStatus
+    public enum PaymentMethod
     {
-        Unpaid = 0,
-        Paid = 1,
-        PartiallyPaid = 2
+        Cash = 0,
+        Card = 1,
+        Online = 2
     }
 }

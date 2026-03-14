@@ -1,4 +1,4 @@
-﻿@page "/billing"
+﻿@* @page "/billing"
 @using ShopInventory.Application.DTOs
 @using ShopInventory.Application.Interfaces
 @inject IProductService ProductService
@@ -14,11 +14,11 @@
                              CustomerAddress="@customerAddress"
                              Notes="@notes"
                              PaymentStatus="@paymentStatus"
-                             OnCustomerNameChanged="(v => customerName = v)"
-                             OnCustomerPhoneChanged="(v => customerPhone = v)"
-                             OnCustomerAddressChanged="(v => customerAddress = v)"
-                             OnNotesChanged="(v => notes = v)"
-                             OnPaymentStatusChanged="(v => paymentStatus = v)" />
+                             OnCustomerNameChanged="HandleCustomerNameChanged"
+                             OnCustomerPhoneChanged="HandleCustomerPhoneChanged"
+                             OnCustomerAddressChanged="HandleCustomerAddressChanged"
+                             OnNotesChanged="HandleNotesChanged"
+                             OnPaymentStatusChanged="HandlePaymentStatusChanged" />
 
         <BillSummaryCard SubTotal="@SubTotal"
                          DiscountAmount="@discountAmount"
@@ -242,4 +242,33 @@
         public int Quantity { get; set; }
         public decimal LineTotal { get; set; }
     }
-}
+    private Task HandleCustomerNameChanged(string value)
+    {
+        customerName = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCustomerPhoneChanged(string value)
+    {
+        customerPhone = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCustomerAddressChanged(string value)
+    {
+        customerAddress = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleNotesChanged(string value)
+    {
+        notes = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandlePaymentStatusChanged(int value)
+    {
+        paymentStatus = value;
+        return Task.CompletedTask;
+    }
+} *@

@@ -53,6 +53,11 @@ namespace ShopInventory.Infrastructure.Data
             modelBuilder.Entity<Bill>()
                 .HasIndex(b => b.BillNo)
                 .IsUnique();
+
+            modelBuilder.Entity<BillItem>()
+    .Ignore(i => i.TotalPrice)
+    .Ignore(i => i.TotalProfit);
         }
+
     }
 }
