@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ShopInventory.App.Services;
 using ShopInventory.Application.Interfaces;
 using ShopInventory.Application.Services;
 using ShopInventory.Infrastructure.Configuration;
@@ -26,7 +27,7 @@ namespace ShopInventory.Infrastructure.Configuration
             services.AddScoped<ISaleService, SaleService>();
             services.AddScoped<IBillService, BillService>();
             services.AddScoped<IBillService, BillService>();
-
+            services.AddSingleton<BillPdfService>();
             return services;
         }
     }

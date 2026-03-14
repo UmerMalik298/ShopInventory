@@ -6,6 +6,7 @@
 @inject IBillService BillService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject ShopInventory.App.Services.BillPdfService BillPdfService
 
 <div class="bill-detail-page" id="bill-detail-page">
 
@@ -36,7 +37,8 @@
                     <option value="@PaymentStatus.PartiallyPaid">Partially Paid</option>
                 </select>
                 <button class="btn-icon" @onclick="PrintBill" title="Print">&#x1F5A8;</button>
-                <button class="btn-icon" @onclick="ShareBill" title="Share">&#x1F4E4;</button>
+                <button class="btn-icon" @onclick="ShareBill" title="Share" @disabled="isSharing">&#x1F4E4;</button>
+                <button class="btn-icon" @onclick="DownloadBill" title="Download">&#x1F4E5;</button>
             </div>
         </div>
 
@@ -171,11 +173,81 @@
         await JS.InvokeVoidAsync("window.print");
     }
 
+    private bool isSharing = false;
+
     private async Task ShareBill()
     {
+        if (bill == null || isSharing) return;
+        isSharing = true;
+        try
+        {
+            var text = BuildReceiptText();
+            await JS.InvokeVoidAsync("navigator.share", new { title = bill.BillNo, text });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Share failed: {ex.Message}");
+        }
+        finally
+        {
+            isSharing = false;
+        }
+    }
+
+    private async Task DownloadBill()
+    {
         if (bill == null) return;
-        var text = $"Bill: {bill.BillNo}\nTotal: Rs. {bill.TotalAmount:N0}\nStatus: {bill.PaymentStatus}";
-        await JS.InvokeVoidAsync("navigator.share", new { title = bill.BillNo, text });
+        try
+        {
+            var pdfBytes = BillPdfService.GeneratePdf(bill);
+            var base64 = Convert.ToBase64String(pdfBytes);
+            var fileName = $"{bill.BillNo}.pdf";
+            await JS.InvokeVoidAsync("downloadPdfFile", fileName, base64);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PDF generation failed: {ex.Message}");
+        }
+    }
+
+    private string BuildReceiptText()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("========================================");
+        sb.AppendLine("           YOUR SHOP NAME");
+        sb.AppendLine("              RECEIPT");
+        sb.AppendLine("========================================");
+        sb.AppendLine($"Bill No : {bill!.BillNo}");
+        sb.AppendLine($"Date    : {bill.BilledAt:dd MMM yyyy, hh:mm tt}");
+        if (!string.IsNullOrEmpty(bill.CustomerName))
+            sb.AppendLine($"Customer: {bill.CustomerName}");
+        if (!string.IsNullOrEmpty(bill.CustomerPhone))
+            sb.AppendLine($"Phone   : {bill.CustomerPhone}");
+        sb.AppendLine("----------------------------------------");
+        sb.AppendLine($"{"Item",-22} {"Qty",4} {"Price",8} {"Total",8}");
+        sb.AppendLine("----------------------------------------");
+        foreach (var item in bill.Items)
+        {
+            var name = string.IsNullOrEmpty(item.VariantName)
+                ? item.ProductName
+                : $"{item.ProductName} ({item.VariantName})";
+            if (name.Length > 22) name = name[..22];
+            sb.AppendLine($"{name,-22} {item.Quantity,4} {item.UnitPrice,8:N0} {item.TotalPrice,8:N0}");
+        }
+        sb.AppendLine("----------------------------------------");
+        sb.AppendLine($"{"Subtotal",-30} {"Rs. " + bill.SubTotal.ToString("N0"),10}");
+        if (bill.DiscountAmount > 0)
+            sb.AppendLine($"{"Discount",-30} {"-Rs. " + bill.DiscountAmount.ToString("N0"),10}");
+        sb.AppendLine($"{"TOTAL",-30} {"Rs. " + bill.TotalAmount.ToString("N0"),10}");
+        sb.AppendLine("========================================");
+        sb.AppendLine($"Payment : {bill.PaymentMethod}");
+        sb.AppendLine($"Status  : {bill.PaymentStatus}");
+        if (!string.IsNullOrEmpty(bill.Notes))
+            sb.AppendLine($"Notes   : {bill.Notes}");
+        sb.AppendLine("========================================");
+        sb.AppendLine("      Thank you for your purchase!");
+        sb.AppendLine("========================================");
+        return sb.ToString();
     }
 
     private string GetStatusClass(PaymentStatus status) => status switch
@@ -198,84 +270,311 @@
 }
 
 <style>
-.bill-detail-page { padding: 1rem 1.25rem; max-width: 640px; margin: 0 auto; }
+    .bill-detail-page {
+        padding: 1rem 1.25rem;
+        max-width: 640px;
+        margin: 0 auto;
+    }
 
-.top-bar { display: flex; align-items: center; margin-bottom: 1.25rem; gap: 12px; }
-.btn-back { background: none; border: none; font-size: 15px; color: #555; cursor: pointer;
-    padding: 6px 10px; border-radius: 8px; flex: 1; text-align: left; }
-.btn-back:hover { background: #f3f4f6; }
-.top-actions { display: flex; gap: 8px; align-items: center; }
+    .top-bar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.25rem;
+        gap: 12px;
+    }
 
-.status-select { padding: 7px 12px; border-radius: 9px; font-size: 13px; font-weight: 600;
-    border: none; cursor: pointer; outline: none; }
-.select-unpaid { background: #fef3c7; color: #92400e; }
-.select-paid { background: #d1fae5; color: #065f46; }
-.select-partial { background: #dbeafe; color: #1e40af; }
+    .btn-back {
+        background: none;
+        border: none;
+        font-size: 15px;
+        color: #555;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 8px;
+        flex: 1;
+        text-align: left;
+    }
 
-.btn-icon { background: #f3f4f6; border: none; border-radius: 9px; padding: 7px 11px;
-    font-size: 16px; cursor: pointer; }
-.btn-icon:hover { background: #e5e7eb; }
+        .btn-back:hover {
+            background: #f3f4f6;
+        }
 
-.receipt-wrap { display: flex; justify-content: center; }
-.receipt { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
-    padding: 1.75rem; width: 100%; max-width: 480px; }
+    .top-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
 
-.receipt-header { text-align: center; margin-bottom: 1.25rem; }
-.shop-name { font-size: 22px; font-weight: 700; color: #111; }
-.shop-sub { font-size: 13px; color: #9ca3af; margin-top: 2px; }
+    .status-select {
+        padding: 7px 12px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        outline: none;
+    }
 
-.receipt-meta { margin-bottom: 1.25rem; }
-.meta-row { display: flex; justify-content: space-between; padding: 4px 0;
-    border-bottom: 1px dashed #f0f0f0; font-size: 13px; }
-.meta-label { color: #6b7280; }
-.meta-value { font-weight: 500; color: #111; }
-.mono { font-family: monospace; font-size: 12px; }
+    .select-unpaid {
+        background: #fef3c7;
+        color: #92400e;
+    }
 
-.items-section { margin-bottom: 1rem; }
-.items-header { display: grid; grid-template-columns: 1fr auto auto auto;
-    gap: 8px; font-size: 11px; font-weight: 600; color: #9ca3af;
-    text-transform: uppercase; letter-spacing: .05em;
-    padding: 6px 0; border-bottom: 2px solid #111; margin-bottom: 4px; }
-.item-row { display: grid; grid-template-columns: 1fr auto auto auto;
-    gap: 8px; padding: 7px 0; border-bottom: 1px dashed #f0f0f0; font-size: 13px; align-items: center; }
-.item-row:last-child { border-bottom: none; }
-.item-name-col { display: flex; flex-direction: column; gap: 1px; }
-.variant-small { font-size: 11px; color: #6b7280; }
-.item-total { font-weight: 600; color: #111; text-align: right; }
+    .select-paid {
+        background: #d1fae5;
+        color: #065f46;
+    }
 
-.totals-section { border-top: 2px solid #111; padding-top: 10px; margin-bottom: 1rem; }
-.total-row { display: flex; justify-content: space-between; font-size: 14px;
-    padding: 4px 0; color: #374151; }
-.total-row.grand { font-size: 18px; font-weight: 700; color: #111;
-    border-top: 1px solid #e5e7eb; margin-top: 6px; padding-top: 8px; }
-.discount-row { color: #059669; }
+    .select-partial {
+        background: #dbeafe;
+        color: #1e40af;
+    }
 
-.payment-info { background: #f9fafb; border-radius: 10px; padding: 10px 14px; margin-bottom: 1rem; }
-.pay-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+    .btn-icon {
+        background: #f3f4f6;
+        border: none;
+        border-radius: 9px;
+        padding: 7px 11px;
+        font-size: 16px;
+        cursor: pointer;
+    }
 
-.status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px;
-    font-size: 11px; font-weight: 700; }
-.badge-paid { background: #d1fae5; color: #065f46; }
-.badge-unpaid { background: #fef3c7; color: #92400e; }
-.badge-partial { background: #dbeafe; color: #1e40af; }
+        .btn-icon:hover {
+            background: #e5e7eb;
+        }
 
-.receipt-notes { font-size: 13px; color: #6b7280; font-style: italic;
-    border-top: 1px dashed #e5e7eb; padding-top: 10px; margin-bottom: 10px; }
-.notes-label { font-weight: 600; color: #374151; font-style: normal; }
+    .receipt-wrap {
+        display: flex;
+        justify-content: center;
+    }
 
-.receipt-footer { text-align: center; font-size: 13px; color: #9ca3af;
-    border-top: 1px dashed #e5e7eb; padding-top: 12px; margin-top: 4px; }
+    .receipt {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 1.75rem;
+        width: 100%;
+        max-width: 480px;
+    }
 
-.loading-state { display: flex; justify-content: center; padding: 3rem; }
-.spinner { width: 28px; height: 28px; border: 3px solid #e5e7eb;
-    border-top-color: #111; border-radius: 50%; animation: spin .7s linear infinite; }
-@@keyframes spin { to { transform: rotate(360deg); } }
+    .receipt-header {
+        text-align: center;
+        margin-bottom: 1.25rem;
+    }
 
-/* Print styles */
-@@media print {
-    .no-print { display: none !important; }
-    .bill-detail-page { padding: 0; }
-    .receipt { border: none; padding: 0; }
-    .receipt-wrap { justify-content: flex-start; }
-}
+    .shop-name {
+        font-size: 22px;
+        font-weight: 700;
+        color: #111;
+    }
+
+    .shop-sub {
+        font-size: 13px;
+        color: #9ca3af;
+        margin-top: 2px;
+    }
+
+    .receipt-meta {
+        margin-bottom: 1.25rem;
+    }
+
+    .meta-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px dashed #f0f0f0;
+        font-size: 13px;
+    }
+
+    .meta-label {
+        color: #6b7280;
+    }
+
+    .meta-value {
+        font-weight: 500;
+        color: #111;
+    }
+
+    .mono {
+        font-family: monospace;
+        font-size: 12px;
+    }
+
+    .items-section {
+        margin-bottom: 1rem;
+    }
+
+    .items-header {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        padding: 6px 0;
+        border-bottom: 2px solid #111;
+        margin-bottom: 4px;
+    }
+
+    .item-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 8px;
+        padding: 7px 0;
+        border-bottom: 1px dashed #f0f0f0;
+        font-size: 13px;
+        align-items: center;
+    }
+
+        .item-row:last-child {
+            border-bottom: none;
+        }
+
+    .item-name-col {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .variant-small {
+        font-size: 11px;
+        color: #6b7280;
+    }
+
+    .item-total {
+        font-weight: 600;
+        color: #111;
+        text-align: right;
+    }
+
+    .totals-section {
+        border-top: 2px solid #111;
+        padding-top: 10px;
+        margin-bottom: 1rem;
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        padding: 4px 0;
+        color: #374151;
+    }
+
+        .total-row.grand {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 6px;
+            padding-top: 8px;
+        }
+
+    .discount-row {
+        color: #059669;
+    }
+
+    .payment-info {
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 1rem;
+    }
+
+    .pay-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 3px 0;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .badge-paid {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-unpaid {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-partial {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .receipt-notes {
+        font-size: 13px;
+        color: #6b7280;
+        font-style: italic;
+        border-top: 1px dashed #e5e7eb;
+        padding-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .notes-label {
+        font-weight: 600;
+        color: #374151;
+        font-style: normal;
+    }
+
+    .receipt-footer {
+        text-align: center;
+        font-size: 13px;
+        color: #9ca3af;
+        border-top: 1px dashed #e5e7eb;
+        padding-top: 12px;
+        margin-top: 4px;
+    }
+
+    .loading-state {
+        display: flex;
+        justify-content: center;
+        padding: 3rem;
+    }
+
+    .spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #111;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Print styles */
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        .bill-detail-page {
+            padding: 0;
+        }
+
+        .receipt {
+            border: none;
+            padding: 0;
+        }
+
+        .receipt-wrap {
+            justify-content: flex-start;
+        }
+    }
 </style>
