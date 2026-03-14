@@ -26,6 +26,7 @@ namespace ShopInventory.Infrastructure.Configuration
             services.AddScoped<ISaleService, SaleService>();
             services.AddScoped<IDashboardService, DashboardService>();
 
+
             return services;
         }
     }
