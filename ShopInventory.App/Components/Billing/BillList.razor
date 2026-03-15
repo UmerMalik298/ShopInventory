@@ -1,8 +1,9 @@
-@page "/billing"
+﻿@page "/billing"
 @using ShopInventory.Domain.Entities.Enums
 @using ShopInventory.Domain.Entities.Sales
 @using ShopInventory.Domain.Entities.Billing
 @using ShopInventory.Application.Interfaces
+@using ShopInventory.App.Components.Common
 @inject IBillService BillService
 @inject NavigationManager Navigation
 
@@ -71,6 +72,10 @@
                                 @bill.PaymentStatus
                             </span>
                             <span class="items-count">@bill.Items.Count item(s)</span>
+                            <button class="btn-delete-bill" @onclick:stopPropagation="true"
+                                    @onclick="@(() => AskDeleteBill(bill))">
+                                ✕
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -78,6 +83,14 @@
         </div>
     }
 </div>
+<ConfirmDialog IsOpen="showDeleteConfirm"
+               Title="Delete Bill"
+               Message="@($"Are you sure you want to delete bill \"{billToDelete?.BillNo}\"? This cannot be undone.")"
+               ConfirmText="Delete"
+               CancelText="Cancel"
+               IsDanger="true"
+               OnConfirm="ConfirmDeleteBill"
+               OnCancel="CancelDeleteBill" />
 
 @code {
     private List<Bill> bills = new();
@@ -85,6 +98,8 @@
     private string searchTerm = "";
     private string activeFilter = "all";
     private bool isLoading = true;
+    private bool showDeleteConfirm = false;
+    private Bill? billToDelete;
 
     protected override async Task OnInitializedAsync()
     {
@@ -140,61 +155,27 @@
 
     private void CreateNewBill() => Navigation.NavigateTo("/billing/create");
     private void OpenBill(Guid id) => Navigation.NavigateTo($"/billing/{id}");
+    private void AskDeleteBill(Bill bill)
+    {
+        billToDelete = bill;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDeleteBill()
+    {
+        showDeleteConfirm = false;
+        if (billToDelete != null)
+        {
+            await BillService.DeleteBillAsync(billToDelete.Id);
+            await LoadBills();
+        }
+        billToDelete = null;
+    }
+
+    private void CancelDeleteBill()
+    {
+        showDeleteConfirm = false;
+        billToDelete = null;
+    }
 }
 
-<style>
-.billing-page { padding: 1.25rem; max-width: 900px; margin: 0 auto; }
-
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
-.page-header h2 { font-size: 20px; font-weight: 600; color: var(--text-primary, #111); margin: 0; }
-.total-count { margin-left: 8px; font-size: 13px; color: var(--text-muted, #888); }
-.header-left { display: flex; align-items: baseline; gap: 4px; }
-
-.btn-create { display: flex; align-items: center; gap: 6px; background: #111; color: #fff;
-    border: none; border-radius: 10px; padding: 9px 18px; font-size: 14px; font-weight: 500;
-    cursor: pointer; transition: opacity .15s; }
-.btn-create:hover { opacity: .85; }
-.btn-create .icon { font-size: 18px; line-height: 1; }
-
-.filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
-.search-wrap { position: relative; flex: 1; min-width: 200px; }
-.search-wrap input { width: 100%; padding: 9px 12px 9px 36px; border-radius: 10px;
-    border: 1px solid #e5e7eb; background: #f9fafb; font-size: 14px; outline: none; color: #111; }
-.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #999; }
-
-.status-filters { display: flex; gap: 6px; }
-.filter-pill { padding: 6px 14px; border-radius: 20px; border: 1px solid #e5e7eb;
-    background: transparent; font-size: 13px; cursor: pointer; color: #555; transition: all .15s; }
-.filter-pill.active, .filter-pill:hover { background: #111; color: #fff; border-color: #111; }
-.filter-pill.unpaid.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
-.filter-pill.paid.active { background: #10b981; border-color: #10b981; color: #fff; }
-.filter-pill.partial.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
-
-.bills-list { display: flex; flex-direction: column; gap: 8px; }
-.bill-card { background: #fff; border: 1px solid #f0f0f0; border-radius: 12px;
-    padding: 14px 16px; cursor: pointer; transition: box-shadow .15s, border-color .15s; }
-.bill-card:hover { border-color: #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-.bill-main { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.bill-info { display: flex; flex-direction: column; gap: 2px; }
-.bill-no { font-size: 13px; font-weight: 600; color: #111; font-family: monospace; }
-.customer-name { font-size: 14px; color: #374151; }
-.bill-date { font-size: 12px; color: #9ca3af; }
-.bill-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.bill-amount { font-size: 16px; font-weight: 700; color: #111; }
-.items-count { font-size: 11px; color: #9ca3af; }
-
-.status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.badge-paid { background: #d1fae5; color: #065f46; }
-.badge-unpaid { background: #fef3c7; color: #92400e; }
-.badge-partial { background: #dbeafe; color: #1e40af; }
-
-.empty-state { text-align: center; padding: 3rem 1rem; }
-.empty-icon { font-size: 48px; margin-bottom: 12px; }
-.empty-state h3 { font-size: 18px; font-weight: 600; color: #111; margin: 0 0 6px; }
-.empty-state p { color: #6b7280; font-size: 14px; margin-bottom: 16px; }
-
-.loading-state { display: flex; flex-direction: column; align-items: center; padding: 3rem; gap: 12px; color: #999; }
-.spinner { width: 28px; height: 28px; border: 3px solid #e5e7eb; border-top-color: #111;
-    border-radius: 50%; animation: spin .7s linear infinite; }
-@@keyframes spin { to { transform: rotate(360deg); } }
-</style>

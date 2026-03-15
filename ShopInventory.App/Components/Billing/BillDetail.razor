@@ -36,9 +36,34 @@
                     <option value="@PaymentStatus.Paid">Paid</option>
                     <option value="@PaymentStatus.PartiallyPaid">Partially Paid</option>
                 </select>
-                <button class="btn-icon" @onclick="PrintBill" title="Print">&#x1F5A8;</button>
-                <button class="btn-icon" @onclick="ShareBill" title="Share" @disabled="isSharing">&#x1F4E4;</button>
-                <button class="btn-icon" @onclick="DownloadBill" title="Download">&#x1F4E5;</button>
+                <button class="btn-action btn-print" @onclick="PrintBill" title="Print">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    <span>Print</span>
+                </button>
+
+                <button class="btn-action btn-share" @onclick="ShareBill" title="Share" disabled="@isSharing">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3" />
+                        <circle cx="6" cy="12" r="3" />
+                        <circle cx="18" cy="19" r="3" />
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                    </svg>
+                    <span>@(isSharing ? "Sharing..." : "Share")</span>
+                </button>
+
+                <button class="btn-action btn-download" @onclick="DownloadBill" title="Download">
+                    <svg class="dl-arrow" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3v13" />
+                        <polyline points="7 13 12 18 17 13" />
+                        <path d="M3 21h18" />
+                    </svg>
+                    <span>Save PDF</span>
+                </button>
             </div>
         </div>
 
@@ -48,7 +73,7 @@
 
                 <!-- Receipt Header -->
                 <div class="receipt-header">
-                    <div class="shop-name">Your Shop Name</div>
+                    <div class="shop-name">Sheer Rabbani Autos</div>
                     <div class="shop-sub">Receipt / Invoice</div>
                 </div>
 
@@ -330,18 +355,71 @@
         color: #1e40af;
     }
 
-    .btn-icon {
-        background: #f3f4f6;
+    .btn-action {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 13px;
         border: none;
-        border-radius: 9px;
-        padding: 7px 11px;
-        font-size: 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
         cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        transition: all .15s ease;
     }
 
-        .btn-icon:hover {
-            background: #e5e7eb;
+        .btn-action span {
+            font-size: 12px;
         }
+
+    .btn-print {
+        background: #1a1a1a;
+        color: #fff;
+    }
+
+        .btn-print:hover {
+            background: #333;
+        }
+
+    .btn-share {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+
+        .btn-share:hover {
+            background: #dbeafe;
+        }
+
+        .btn-share:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+    .btn-download {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+        .btn-download:hover {
+            background: #dcfce7;
+        }
+
+            .btn-download:hover .dl-arrow {
+                animation: bounceDown .5s ease infinite;
+            }
+
+    @@keyframes bounceDown {
+        0%, 100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(3px);
+        }
+    }
 
     .receipt-wrap {
         display: flex;

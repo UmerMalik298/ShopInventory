@@ -10,5 +10,6 @@ namespace ShopInventory.Application.Interfaces
         Task UpdateQuantityAsync(Guid id, int delta);
 
         Task DeleteAsync(Guid id);
+        Task UpdateAsync(ProductDto dto);
     }
 }

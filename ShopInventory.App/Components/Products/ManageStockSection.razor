@@ -17,7 +17,7 @@
                         <th>SKU</th>
                         <th>Qty</th>
                         <th>Stock</th>
-                        <th>Delete</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -41,10 +41,16 @@
                                 </div>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-outline-danger"
-                                        @onclick="() => OnDeleteProduct.InvokeAsync(product.Id)">
-                                    Delete
-                                </button>
+                                <div class="action-btns">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => OpenEdit(product)">
+                                        ✏️ Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => AskDelete(product)">
+                                        🗑 Delete
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -53,10 +59,138 @@
         </div>
     }
 </div>
+<!-- Edit Modal -->
+@if (showEditModal && editingProduct != null)
+{
+    <div class="edit-overlay" @onclick="CloseEdit">
+        <div class="edit-box" @onclick:stopPropagation="true">
+            <div class="edit-header">
+                <h3>Edit Product</h3>
+                <button class="cd-close" @onclick="CloseEdit">✕</button>
+            </div>
+            <div class="edit-body">
+                <div class="edit-field">
+                    <label>Name</label>
+                    <input type="text" @bind="editName" placeholder="Product name" />
+                </div>
+                <div class="edit-field">
+                    <label>SKU</label>
+                    <input type="text" @bind="editSku" placeholder="SKU" />
+                </div>
+                <div class="edit-row">
+                    <div class="edit-field">
+                        <label>Quantity</label>
+                        <input type="number" @bind="editQuantity" min="0" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Sale Price</label>
+                        <input type="number" @bind="editSalePrice" min="0" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Cost Price</label>
+                        <input type="number" @bind="editCostPrice" min="0" />
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-field">
+                        <label>Category</label>
+                        <input type="text" @bind="editCategory" placeholder="Category" />
+                    </div>
+                    <div class="edit-field">
+                        <label>Unit</label>
+                        <input type="text" @bind="editUnit" placeholder="e.g. pcs, kg" />
+                    </div>
+                </div>
+            </div>
+            <div class="edit-footer">
+                <button class="cd-btn cd-btn-light" @onclick="CloseEdit">Cancel</button>
+                <button class="cd-btn cd-btn-primary" @onclick="ConfirmEdit">Save Changes</button>
+            </div>
+        </div>
+    </div>
+}
 
+<!-- Delete Confirmation -->
+<ConfirmDialog IsOpen="showDeleteConfirm"
+               Title="Delete Product"
+               Message="@($"Are you sure you want to delete \"{productToDelete?.Name}\"? This cannot be undone.")"
+               ConfirmText="Delete"
+               CancelText="Cancel"
+               IsDanger="true"
+               OnConfirm="ConfirmDelete"
+               OnCancel="CancelDelete" />
 @code {
     [Parameter] public List<ProductDto> Products { get; set; } = new();
     [Parameter] public EventCallback<Guid> OnIncreaseQuantity { get; set; }
     [Parameter] public EventCallback<Guid> OnDecreaseQuantity { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteProduct { get; set; }
+    [Parameter] public EventCallback<ProductDto> OnEditProduct { get; set; }
+
+    // ── Delete ──
+    private bool showDeleteConfirm = false;
+    private ProductDto? productToDelete;
+
+    private void AskDelete(ProductDto product)
+    {
+        productToDelete = product;
+        showDeleteConfirm = true;
+    }
+    private async Task ConfirmDelete()
+    {
+        showDeleteConfirm = false;
+        if (productToDelete != null)
+            await OnDeleteProduct.InvokeAsync(productToDelete.Id);
+        productToDelete = null;
+    }
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        productToDelete = null;
+    }
+
+    // ── Edit ──
+    private bool showEditModal = false;
+    private ProductDto? editingProduct;
+    private string editName = "";
+    private string editSku = "";
+    private int editQuantity = 0;
+    private decimal editSalePrice = 0;
+    private decimal editCostPrice = 0;
+    private string editCategory = "";
+    private string editUnit = "";
+
+    private void OpenEdit(ProductDto product)
+    {
+        editingProduct = product;
+        editName = product.Name;
+        editSku = product.Sku;
+        editQuantity = product.Quantity;
+        editSalePrice = product.SalePrice;
+        editCostPrice = product.CostPrice;
+        editCategory = product.Category ?? "";
+        editUnit = product.Unit ?? "";
+        showEditModal = true;
+    }
+    private void CloseEdit()
+    {
+        showEditModal = false;
+        editingProduct = null;
+    }
+    private async Task ConfirmEdit()
+    {
+        if (editingProduct == null) return;
+        var updated = new ProductDto
+        {
+            Id = editingProduct.Id,
+            Name = editName.Trim(),
+            Sku = editSku.Trim(),
+            Quantity = editQuantity,
+            SalePrice = editSalePrice,
+            CostPrice = editCostPrice,
+            Category = editCategory.Trim(),
+            Unit = editUnit.Trim()
+        };
+        await OnEditProduct.InvokeAsync(updated);
+        CloseEdit();
+    }
 }

@@ -35,7 +35,8 @@
         <ManageStockSection Products="_products"
                             OnIncreaseQuantity="IncreaseQuantityAsync"
                             OnDecreaseQuantity="DecreaseQuantityAsync"
-                            OnDeleteProduct="DeleteProductAsync" />
+                            OnDeleteProduct="DeleteProductAsync"
+                            OnEditProduct="EditProductAsync" />
     }
 </div>
 
@@ -90,4 +91,10 @@
         await ProductService.DeleteAsync(id);
         await LoadProductsAsync();
     }
+    private async Task EditProductAsync(ProductDto dto)
+    {
+        await ProductService.UpdateAsync(dto);
+        await LoadProductsAsync();
+    }
+
 }

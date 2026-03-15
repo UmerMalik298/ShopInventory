@@ -6,10 +6,11 @@
 
         <InputText class="form-control search-box"
                    placeholder="Search by name, SKU or category"
-                   @bind-Value="searchText" />
+                   @bind-Value="searchText"
+                   @oninput="OnInputChanged" />
 
-        <button class="btn btn-dark" @onclick="SearchAsync">Search</button>
-        <button class="btn btn-outline-secondary" @onclick="ResetAsync">Reset</button>
+        @* <button class="btn btn-dark" @onclick="SearchAsync">Search</button>
+        <button class="btn btn-outline-secondary" @onclick="ResetAsync">Reset</button> *@
     </div>
 
     @if (Products.Count == 0)
@@ -82,4 +83,10 @@
 
         return "";
     }
+    private async Task OnInputChanged(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        await OnSearch.InvokeAsync(searchText);
+    }
+
 }

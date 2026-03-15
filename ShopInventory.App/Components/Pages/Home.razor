@@ -29,7 +29,10 @@
                 <p class="dash-sub">@DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
             </div>
 
-            <button class="dash-refresh" @onclick="LoadAsync">Refresh</button>
+ <button class="dash-refresh @(_isRefreshing ? "refreshing" : "")" @onclick="LoadAsync">
+        <span class="refresh-icon">↻</span>
+        <span>@(_isRefreshing ? "Refreshing..." : "Refresh")</span>
+    </button>
         </div>
 
         <div class="kpi-grid">
@@ -248,15 +251,27 @@
 @code {
     private DashboardVm? _dashboard;
     private bool _loading = true;
+    private bool _isRefreshing = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
     }
 
+
+
     private async Task LoadAsync()
     {
-        _loading = true;
+        if (_dashboard == null)
+        {
+            _loading = true;
+        }
+        else
+        {
+            _isRefreshing = true;
+        }
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(50);
 
         var today = DateTime.UtcNow.Date;
         var tomorrow = today.AddDays(1);
@@ -314,11 +329,9 @@
             {
                 var day = last7Start.AddDays(i);
                 var nextDay = day.AddDays(1);
-
                 var daySales = last7Sales
                     .Where(x => x.SoldAt >= day && x.SoldAt < nextDay)
                     .ToList();
-
                 return new DaySalesVm
                 {
                     DayLabel = day.ToLocalTime().ToString("ddd"),
@@ -375,8 +388,9 @@
         };
 
         _loading = false;
+        _isRefreshing = false;
+        await InvokeAsync(StateHasChanged);
     }
-
     private class DashboardVm
     {
         public int TotalProducts { get; set; }
