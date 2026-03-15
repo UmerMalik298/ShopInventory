@@ -23,7 +23,7 @@ namespace ShopInventory.App.Services
                     page.Content().Column(col =>
                     {
                         // Header
-                        col.Item().AlignCenter().Text("YOUR SHOP NAME")
+                        col.Item().AlignCenter().Text("SHEER RABBANI AUTOS")
                             .FontSize(20).Bold();
                         col.Item().AlignCenter().Text("Receipt / Invoice")
                             .FontSize(11).FontColor(Colors.Grey.Medium);
