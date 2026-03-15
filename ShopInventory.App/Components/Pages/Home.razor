@@ -1,7 +1,443 @@
 ﻿@page "/"
+@using Microsoft.EntityFrameworkCore
 @using ShopInventory.Infrastructure.Data
 @inject ApplicationDbContext DbContext
 
-<h1>Hello, world!</h1>
+<div class="dash-shell">
+    @if (_loading)
+    {
+        <div class="dash-loading">
+            <div class="dash-spinner"></div>
+            <p>Loading dashboard...</p>
+        </div>
+    }
+    else if (_dashboard is null)
+    {
+        <div class="dash-empty">
+            <h3>No dashboard data</h3>
+            <p>Please add products and record some sales.</p>
+        </div>
+    }
+    else
+    {
+        var maxRevenue = _dashboard.Last7Days.Any() ? _dashboard.Last7Days.Max(x => x.Revenue) : 0;
+        var maxUnits = _dashboard.TopProducts.Any() ? _dashboard.TopProducts.Max(x => x.UnitsSold) : 0;
 
-Welcome to your new app.
+        <div class="dash-header">
+            <div>
+                <h1 class="dash-title">Dashboard</h1>
+                <p class="dash-sub">@DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
+            </div>
+
+ <button class="dash-refresh @(_isRefreshing ? "refreshing" : "")" @onclick="LoadAsync">
+        <span class="refresh-icon">↻</span>
+        <span>@(_isRefreshing ? "Refreshing..." : "Refresh")</span>
+    </button>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total Products</span>
+                    <strong class="kpi-val">@_dashboard.TotalProducts</strong>
+                </div>
+            </div>
+
+            <div class="kpi-card purple">
+                <div class="kpi-icon">🧩</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Total Variants</span>
+                    <strong class="kpi-val">@_dashboard.TotalVariants</strong>
+                </div>
+            </div>
+
+            <div class="kpi-card orange">
+                <div class="kpi-icon">🛒</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Units Sold Today</span>
+                    <strong class="kpi-val">@_dashboard.TodaySalesCount</strong>
+                </div>
+            </div>
+
+            <div class="kpi-card green">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Today Revenue</span>
+                    <strong class="kpi-val">@_dashboard.TodayRevenue.ToString("F2")</strong>
+                </div>
+            </div>
+
+            <div class="kpi-card emerald">
+                <div class="kpi-icon">📈</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Today Profit</span>
+                    <strong class="kpi-val">@_dashboard.TodayProfit.ToString("F2")</strong>
+                </div>
+            </div>
+
+            <div class="kpi-card red">
+                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Out Of Stock</span>
+                    <strong class="kpi-val">@_dashboard.OutOfStockCount</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-card wide">
+                <h4 class="chart-title">Sales - Last 7 Days</h4>
+
+                @if (!_dashboard.Last7Days.Any() || _dashboard.Last7Days.All(x => x.Revenue == 0))
+                {
+                    <div class="chart-empty">No sales in the last 7 days</div>
+                }
+                else
+                {
+                    <div class="bar-chart">
+                        @foreach (var day in _dashboard.Last7Days)
+                        {
+                            var height = maxRevenue > 0 ? (day.Revenue / maxRevenue) * 100 : 0;
+                            var style = $"height:{height:F1}%";
+
+                            <div class="bar-col">
+                                <div class="bar-wrap" title="Revenue: @day.Revenue.ToString("F2"), Units: @day.UnitsSold">
+                                    <div class="bar revenue" style="@style"></div>
+                                </div>
+                                <span class="bar-value">@day.Revenue.ToString("F0")</span>
+                                <span class="bar-label">@day.DayLabel</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="chart-card">
+                <h4 class="chart-title">Top Selling Products</h4>
+
+                @if (!_dashboard.TopProducts.Any())
+                {
+                    <div class="chart-empty">No sales yet</div>
+                }
+                else
+                {
+                    <div class="top-products">
+                        @foreach (var item in _dashboard.TopProducts)
+                        {
+                            var width = maxUnits > 0 ? ((decimal)item.UnitsSold / maxUnits) * 100 : 0;
+                            var style = $"width:{width:F1}%";
+
+                            <div class="tp-row">
+                                <div class="tp-head">
+                                    <span class="tp-name">@item.Name</span>
+                                    <span class="tp-units">x@item.UnitsSold</span>
+                                </div>
+                                <div class="tp-bar-wrap">
+                                    <div class="tp-bar" style="@style"></div>
+                                </div>
+                                <div class="tp-meta">
+                                    <span>@item.Revenue.ToString("F2")</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="split-row">
+            <div class="stock-card">
+                <div class="section-head">
+                    <h4 class="chart-title">Low And Out Of Stock</h4>
+                    <span class="small-badge">@_dashboard.LowStockItems.Count item(s)</span>
+                </div>
+
+                @if (!_dashboard.LowStockItems.Any())
+                {
+                    <div class="chart-empty">No stock alerts</div>
+                }
+                else
+                {
+                    <div class="stock-list">
+                        @foreach (var item in _dashboard.LowStockItems)
+                        {
+                            <div class="stock-item @(item.Quantity == 0 ? "out" : "low")">
+                                <div class="stock-left">
+                                    <div class="stock-name">
+                                        @item.Name
+                                        @if (!string.IsNullOrWhiteSpace(item.VariantName))
+                                        {
+                                            <span class="stock-variant">@item.VariantName</span>
+                                        }
+                                    </div>
+                                    <div class="stock-status">@item.Status</div>
+                                </div>
+
+                                <div class="stock-right">
+                                    <span class="stock-qty">x@item.Quantity</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="recent-card">
+                <div class="section-head">
+                    <h4 class="chart-title">Recent Sales</h4>
+                    <span class="small-badge">@_dashboard.RecentSales.Count sale(s)</span>
+                </div>
+
+                @if (!_dashboard.RecentSales.Any())
+                {
+                    <div class="chart-empty">No recent sales</div>
+                }
+                else
+                {
+                    <div class="recent-list">
+                        @foreach (var sale in _dashboard.RecentSales)
+                        {
+                            <div class="recent-item">
+                                <div class="recent-left">
+                                    <div class="recent-name">
+                                        @sale.ProductName
+                                        @if (!string.IsNullOrWhiteSpace(sale.VariantName))
+                                        {
+                                            <span class="recent-variant">@sale.VariantName</span>
+                                        }
+                                    </div>
+
+                                    <div class="recent-sub">
+                                        <span>@sale.SoldAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
+                                        @if (!string.IsNullOrWhiteSpace(sale.Notes))
+                                        {
+                                            <span>- @sale.Notes</span>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="recent-right">
+                                    <span class="recent-qty">x@sale.QuantitySold</span>
+                                    <span class="recent-rev">@sale.Revenue.ToString("F2")</span>
+                                    <span class="recent-profit">+@sale.Profit.ToString("F2")</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="summary-footer">
+            <div class="sf-box">
+                <span>Total Revenue</span>
+                <strong>@_dashboard.TotalRevenue.ToString("F2")</strong>
+            </div>
+
+            <div class="sf-box">
+                <span>Total Profit</span>
+                <strong>@_dashboard.TotalProfit.ToString("F2")</strong>
+            </div>
+
+            <div class="sf-box">
+                <span>Low Stock Items</span>
+                <strong>@_dashboard.LowStockCount</strong>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardVm? _dashboard;
+    private bool _loading = true;
+    private bool _isRefreshing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+
+
+    private async Task LoadAsync()
+    {
+        if (_dashboard == null)
+        {
+            _loading = true;
+        }
+        else
+        {
+            _isRefreshing = true;
+        }
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(50);
+
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+        var last7Start = today.AddDays(-6);
+
+        var totalProducts = await DbContext.Product.CountAsync();
+        var totalVariants = await DbContext.ProductVariant.CountAsync();
+
+        var todaySales = await DbContext.Sale
+            .Where(x => x.SoldAt >= today && x.SoldAt < tomorrow)
+            .ToListAsync();
+
+        var allSales = await DbContext.Sale
+            .OrderByDescending(x => x.SoldAt)
+            .ToListAsync();
+
+        var last7Sales = allSales
+            .Where(x => x.SoldAt >= last7Start)
+            .ToList();
+
+        var outOfStockProducts = await DbContext.Product.CountAsync(x => x.Quantity == 0);
+        var outOfStockVariants = await DbContext.ProductVariant.CountAsync(x => x.Quantity == 0);
+
+        var productAlerts = await DbContext.Product
+            .Where(x => x.Quantity <= 3)
+            .Select(x => new LowStockItemVm
+            {
+                Name = x.Name,
+                VariantName = null,
+                Quantity = x.Quantity,
+                Status = x.Quantity == 0 ? "Out of stock" : "Low stock"
+            })
+            .ToListAsync();
+
+        var variantAlerts = await DbContext.ProductVariant
+            .Where(x => x.Quantity <= 3)
+            .Select(x => new LowStockItemVm
+            {
+                Name = x.Product.Name,
+                VariantName = x.Name,
+                Quantity = x.Quantity,
+                Status = x.Quantity == 0 ? "Out of stock" : "Low stock"
+            })
+            .ToListAsync();
+
+        var lowStockItems = productAlerts
+            .Concat(variantAlerts)
+            .OrderBy(x => x.Quantity)
+            .ThenBy(x => x.Name)
+            .Take(10)
+            .ToList();
+
+        var last7Days = Enumerable.Range(0, 7)
+            .Select(i =>
+            {
+                var day = last7Start.AddDays(i);
+                var nextDay = day.AddDays(1);
+                var daySales = last7Sales
+                    .Where(x => x.SoldAt >= day && x.SoldAt < nextDay)
+                    .ToList();
+                return new DaySalesVm
+                {
+                    DayLabel = day.ToLocalTime().ToString("ddd"),
+                    Revenue = daySales.Sum(x => x.SalePriceAtTime * x.QuantitySold),
+                    UnitsSold = daySales.Sum(x => x.QuantitySold)
+                };
+            })
+            .ToList();
+
+        var topProducts = allSales
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.VariantName)
+                ? x.ProductName
+                : $"{x.ProductName} - {x.VariantName}")
+            .Select(g => new TopProductVm
+            {
+                Name = g.Key,
+                UnitsSold = g.Sum(x => x.QuantitySold),
+                Revenue = g.Sum(x => x.SalePriceAtTime * x.QuantitySold)
+            })
+            .OrderByDescending(x => x.UnitsSold)
+            .ThenByDescending(x => x.Revenue)
+            .Take(5)
+            .ToList();
+
+        var recentSales = allSales
+            .Take(8)
+            .Select(x => new RecentSaleVm
+            {
+                ProductName = x.ProductName,
+                VariantName = x.VariantName,
+                QuantitySold = x.QuantitySold,
+                Revenue = x.SalePriceAtTime * x.QuantitySold,
+                Profit = (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold,
+                SoldAt = x.SoldAt,
+                Notes = x.Notes
+            })
+            .ToList();
+
+        _dashboard = new DashboardVm
+        {
+            TotalProducts = totalProducts,
+            TotalVariants = totalVariants,
+            TodaySalesCount = todaySales.Sum(x => x.QuantitySold),
+            TodayRevenue = todaySales.Sum(x => x.SalePriceAtTime * x.QuantitySold),
+            TodayProfit = todaySales.Sum(x => (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold),
+            TotalRevenue = allSales.Sum(x => x.SalePriceAtTime * x.QuantitySold),
+            TotalProfit = allSales.Sum(x => (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold),
+            OutOfStockCount = outOfStockProducts + outOfStockVariants,
+            LowStockCount = productAlerts.Count + variantAlerts.Count,
+            Last7Days = last7Days,
+            TopProducts = topProducts,
+            LowStockItems = lowStockItems,
+            RecentSales = recentSales
+        };
+
+        _loading = false;
+        _isRefreshing = false;
+        await InvokeAsync(StateHasChanged);
+    }
+    private class DashboardVm
+    {
+        public int TotalProducts { get; set; }
+        public int TotalVariants { get; set; }
+        public int TodaySalesCount { get; set; }
+        public decimal TodayRevenue { get; set; }
+        public decimal TodayProfit { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public decimal TotalProfit { get; set; }
+        public int OutOfStockCount { get; set; }
+        public int LowStockCount { get; set; }
+        public List<DaySalesVm> Last7Days { get; set; } = new();
+        public List<TopProductVm> TopProducts { get; set; } = new();
+        public List<LowStockItemVm> LowStockItems { get; set; } = new();
+        public List<RecentSaleVm> RecentSales { get; set; } = new();
+    }
+
+    private class DaySalesVm
+    {
+        public string DayLabel { get; set; } = "";
+        public decimal Revenue { get; set; }
+        public int UnitsSold { get; set; }
+    }
+
+    private class TopProductVm
+    {
+        public string Name { get; set; } = "";
+        public int UnitsSold { get; set; }
+        public decimal Revenue { get; set; }
+    }
+
+    private class LowStockItemVm
+    {
+        public string Name { get; set; } = "";
+        public string? VariantName { get; set; }
+        public int Quantity { get; set; }
+        public string Status { get; set; } = "";
+    }
+
+    private class RecentSaleVm
+    {
+        public string ProductName { get; set; } = "";
+        public string? VariantName { get; set; }
+        public int QuantitySold { get; set; }
+        public decimal Revenue { get; set; }
+        public decimal Profit { get; set; }
+        public DateTime SoldAt { get; set; }
+        public string? Notes { get; set; }
+    }
+}

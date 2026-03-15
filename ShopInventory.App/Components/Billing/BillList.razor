@@ -1,0 +1,181 @@
+﻿@page "/billing"
+@using ShopInventory.Domain.Entities.Enums
+@using ShopInventory.Domain.Entities.Sales
+@using ShopInventory.Domain.Entities.Billing
+@using ShopInventory.Application.Interfaces
+@using ShopInventory.App.Components.Common
+@inject IBillService BillService
+@inject NavigationManager Navigation
+
+<div class="billing-page">
+    <div class="page-header">
+        <div class="header-left">
+            <h2>Bills</h2>
+            <span class="total-count">@bills.Count total</span>
+        </div>
+        <button class="btn-create" @onclick="CreateNewBill">
+            <span class="icon">+</span> New Bill
+        </button>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="filter-bar">
+        <div class="search-wrap">
+            <span class="search-icon">&#x1F50D;</span>
+            <input type="text" placeholder="Search by bill no or customer..."
+                   value="@searchTerm" @oninput="FilterBills" />
+        </div>
+        <div class="status-filters">
+            <button class="filter-pill @(activeFilter == "all" ? "active" : "")"
+                    @onclick="@(() => SetFilter("all"))">All</button>
+            <button class="filter-pill unpaid @(activeFilter == "unpaid" ? "active" : "")"
+                    @onclick="@(() => SetFilter("unpaid"))">Unpaid</button>
+            <button class="filter-pill paid @(activeFilter == "paid" ? "active" : "")"
+                    @onclick="@(() => SetFilter("paid"))">Paid</button>
+            <button class="filter-pill partial @(activeFilter == "partial" ? "active" : "")"
+                    @onclick="@(() => SetFilter("partial"))">Partial</button>
+        </div>
+    </div>
+
+    <!-- Bills List -->
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading bills...</p>
+        </div>
+    }
+    else if (filteredBills.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">&#x1F9FE;</div>
+            <h3>No bills found</h3>
+            <p>Create your first bill to get started</p>
+            <button class="btn-create" @onclick="CreateNewBill">+ New Bill</button>
+        </div>
+    }
+    else
+    {
+        <div class="bills-list">
+            @foreach (var bill in filteredBills)
+            {
+                <div class="bill-card" @onclick="@(() => OpenBill(bill.Id))">
+                    <div class="bill-main">
+                        <div class="bill-info">
+                            <span class="bill-no">@bill.BillNo</span>
+                            <span class="customer-name">@(string.IsNullOrEmpty(bill.CustomerName) ? "Walk-in Customer" : bill.CustomerName)</span>
+                            <span class="bill-date">@bill.BilledAt.ToString("dd MMM yyyy, hh:mm tt")</span>
+                        </div>
+                        <div class="bill-right">
+                            <span class="bill-amount">Rs. @bill.TotalAmount.ToString("N0")</span>
+                            <span class="status-badge @GetStatusClass(bill.PaymentStatus)">
+                                @bill.PaymentStatus
+                            </span>
+                            <span class="items-count">@bill.Items.Count item(s)</span>
+                            <button class="btn-delete-bill" @onclick:stopPropagation="true"
+                                    @onclick="@(() => AskDeleteBill(bill))">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+<ConfirmDialog IsOpen="showDeleteConfirm"
+               Title="Delete Bill"
+               Message="@($"Are you sure you want to delete bill \"{billToDelete?.BillNo}\"? This cannot be undone.")"
+               ConfirmText="Delete"
+               CancelText="Cancel"
+               IsDanger="true"
+               OnConfirm="ConfirmDeleteBill"
+               OnCancel="CancelDeleteBill" />
+
+@code {
+    private List<Bill> bills = new();
+    private List<Bill> filteredBills = new();
+    private string searchTerm = "";
+    private string activeFilter = "all";
+    private bool isLoading = true;
+    private bool showDeleteConfirm = false;
+    private Bill? billToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBills();
+    }
+
+    private async Task LoadBills()
+    {
+        isLoading = true;
+        bills = await BillService.GetAllBillsAsync();
+        ApplyFilter();
+        isLoading = false;
+    }
+
+    private void FilterBills(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? "";
+        ApplyFilter();
+    }
+
+    private void SetFilter(string filter)
+    {
+        activeFilter = filter;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        var query = bills.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+            query = query.Where(b =>
+                b.BillNo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                (b.CustomerName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+
+        if (activeFilter == "unpaid")
+            query = query.Where(b => b.PaymentStatus == PaymentStatus.Unpaid);
+        else if (activeFilter == "paid")
+            query = query.Where(b => b.PaymentStatus == PaymentStatus.Paid);
+        else if (activeFilter == "partial")
+            query = query.Where(b => b.PaymentStatus == PaymentStatus.PartiallyPaid);
+
+        filteredBills = query.ToList();
+    }
+
+    private string GetStatusClass(PaymentStatus status) => status switch
+    {
+        PaymentStatus.Paid => "badge-paid",
+        PaymentStatus.Unpaid => "badge-unpaid",
+        PaymentStatus.PartiallyPaid => "badge-partial",
+        _ => ""
+    };
+
+    private void CreateNewBill() => Navigation.NavigateTo("/billing/create");
+    private void OpenBill(Guid id) => Navigation.NavigateTo($"/billing/{id}");
+    private void AskDeleteBill(Bill bill)
+    {
+        billToDelete = bill;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDeleteBill()
+    {
+        showDeleteConfirm = false;
+        if (billToDelete != null)
+        {
+            await BillService.DeleteBillAsync(billToDelete.Id);
+            await LoadBills();
+        }
+        billToDelete = null;
+    }
+
+    private void CancelDeleteBill()
+    {
+        showDeleteConfirm = false;
+        billToDelete = null;
+    }
+}
+

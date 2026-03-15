@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ShopInventory.App.Services;
 using ShopInventory.Application.Interfaces;
 using ShopInventory.Infrastructure.Configuration;
 using ShopInventory.Infrastructure.Data;
@@ -41,6 +42,7 @@ public static class MauiProgram
         builder.Services.AddInfrastructure(builder.Configuration);
 
         builder.Services.AddBlazorWebViewDeveloperTools();
+        builder.Services.AddSingleton<LicenseService>();
         builder.Logging.AddDebug();
 
         var app = builder.Build();

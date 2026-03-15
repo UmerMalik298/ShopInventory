@@ -1,0 +1,578 @@
+﻿@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@using ShopInventory.App.Components.Common
+@inject IProductVariantService VariantService
+@inject ISaleService SaleService
+
+<div class="product-card @StockStatusClass" @onclick="OpenDrawer">
+    <div class="product-image-wrap">
+        @if (!string.IsNullOrWhiteSpace(ImageUrl))
+        {
+            <img src="@ImageUrl" alt="@Name" class="product-image" />
+        }
+        else
+        {
+            <div class="product-image empty">
+                <span>📦</span>
+                <p>No Image</p>
+            </div>
+        }
+        <span class="stock-badge @StockStatusClass">@StockLabel</span>
+    </div>
+
+    <div class="product-body">
+        <div class="product-header">
+            <div>
+                <h3 class="product-name">@Name</h3>
+                <div class="product-sku">@Sku</div>
+            </div>
+            <button class="eye-btn" @onclick="ToggleCost" @onclick:stopPropagation="true">
+                @if (showCost)
+                {
+                    <span>🙈</span>
+                }
+                else
+                {
+                    <span>👁</span>
+                }
+            </button>
+        </div>
+
+        <div class="price-row">
+            <div class="price-box">
+                <span class="label">Sale Price</span>
+                <strong class="sale">@SalePrice</strong>
+            </div>
+            <div class="price-box cost-box">
+                <span class="label">Cost Price</span>
+                <strong>@(showCost? CostPrice : "••••")</strong>
+            </div>
+        </div>
+
+        <div class="meta">
+            <div class="meta-row"><span>Qty</span><span>@Quantity</span></div>
+            @if (!string.IsNullOrWhiteSpace(Category))
+            {
+                <div class="meta-row"><span>Category</span><span>@Category</span></div>
+            }
+        </div>
+
+        @if (_variantCount > 0)
+        {
+            <div class="variants-hint">@_variantCount variant(s) — tap to view</div>
+        }
+
+        <div class="tap-hint">Tap to manage</div>
+    </div>
+</div>
+
+@if (drawerOpen)
+{
+    <div class="drawer-overlay" @onclick="CloseDrawer">
+        <div class="drawer" @onclick:stopPropagation="true">
+
+            <div class="drawer-header">
+                <div>
+                    <h2 class="drawer-title">@Name</h2>
+                    <p class="drawer-sub">@Sku</p>
+                </div>
+                <button class="drawer-close" @onclick="CloseDrawer">✕</button>
+            </div>
+
+            <div class="drawer-section">
+                <h4 class="drawer-section-title">Product Info</h4>
+                <div class="drawer-info-grid">
+                    <div class="drawer-info-box">
+                        <span class="dib-label">Sale Price</span>
+                        <strong class="dib-val sale">@SalePrice</strong>
+                    </div>
+
+                    <div class="drawer-info-box cost">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <span class="dib-label">Cost Price</span>
+                            <button class="pc-eye" @onclick="ToggleCost">
+                                @if (showCost)
+                                {
+                                    <span>🙈</span>
+                                }
+                                else
+                                {
+                                    <span>👁</span>
+                                }
+                            </button>
+                        </div>
+                        <strong class="dib-val">@(showCost? CostPrice : "••••")</strong>
+                    </div>
+
+                    <div class="drawer-info-box">
+                        <span class="dib-label">Quantity</span>
+                        <strong class="dib-val">@_currentQuantity</strong>
+                    </div>
+
+                    <div class="drawer-info-box @StockStatusClass">
+                        <span class="dib-label">Status</span>
+                        <strong class="dib-val">@StockLabel</strong>
+                    </div>
+                </div>
+            </div>
+
+            @if (!_variants.Any())
+            {
+                <div class="drawer-section">
+                    <h4 class="drawer-section-title">Record Sale</h4>
+                    <div class="sell-form">
+                        <div class="sell-form-row">
+                            <div>
+                                <label>Qty to Sell</label>
+                                <input class="vf-input" type="number" min="1" max="@_currentQuantity" @bind="_sellQty" />
+                            </div>
+                            <div>
+                                <label>Notes (optional)</label>
+                                <input class="vf-input" @bind="_sellNotes" placeholder="e.g. sold to Ahmed" />
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(_sellError))
+                        {
+                            <p class="sell-error">@_sellError</p>
+                        }
+
+                        <button class="btn-sell" @onclick="RecordProductSaleAsync" disabled="@(_currentQuantity == 0)">
+                            ✅ Mark as Sold
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4 class="drawer-section-title">Variants</h4>
+                    <button class="btn-add-variant" @onclick="ToggleAddVariant">
+                        @(addingVariant ? "Cancel" : "+ Add Variant")
+                    </button>
+                </div>
+
+                @if (addingVariant)
+                {
+                    <div class="variant-form">
+                        <div class="vf-grid">
+                            <div>
+                                <label>Variant Name *</label>
+                                <input class="vf-input" @bind="_vModel.Name" placeholder="e.g. Steel 17 inch" />
+                            </div>
+                            <div>
+                                <label>SKU</label>
+                                <input class="vf-input" @bind="_vModel.Sku" placeholder="e.g. RIM-STL-17" />
+                            </div>
+                            <div>
+                                <label>Sale Price</label>
+                                <input class="vf-input" type="number" @bind="_vModel.SalePrice" />
+                            </div>
+                            <div>
+                                <label>Cost Price</label>
+                                <input class="vf-input" type="number" @bind="_vModel.CostPrice" />
+                            </div>
+                            <div>
+                                <label>Quantity</label>
+                                <input class="vf-input" type="number" @bind="_vModel.Quantity" />
+                            </div>
+                            <div>
+                                <label>Quality</label>
+                                <input class="vf-input" @bind="_vModel.Quality" placeholder="e.g. Premium" />
+                            </div>
+                        </div>
+
+                        <button class="btn-save-variant" @onclick="SaveVariantAsync">Save Variant</button>
+                    </div>
+                }
+
+                @if (_variants.Count == 0)
+                {
+                    <p class="empty-variants">No variants yet.</p>
+                }
+                else
+                {
+                    <div class="variants-list">
+                        @foreach (var v in _variants)
+                        {
+                            <div class="variant-row">
+                                <div class="vr-left">
+                                    <span class="vr-name">@v.Name</span>
+
+                                    @if (!string.IsNullOrWhiteSpace(v.Quality))
+                                    {
+                                        <span class="vr-quality">@v.Quality</span>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(v.Sku))
+                                    {
+                                        <span class="vr-sku">@v.Sku</span>
+                                    }
+
+                                    <span class="vr-status @GetVariantStatusClass(v.Quantity)">
+                                        @GetVariantStatusLabel(v.Quantity)
+                                    </span>
+                                </div>
+
+                                <div class="vr-right">
+                                    <div class="vr-price">
+                                        <span class="vr-price-label">Sale</span>
+                                        <strong class="sale">@v.SalePrice.ToString("F2")</strong>
+                                    </div>
+
+                                    <div class="vr-price">
+                                        <span class="vr-price-label">Cost</span>
+                                        <strong>@(showCost? v.CostPrice.ToString("F2") : "••••")</strong>
+                                    </div>
+
+                                    <div class="vr-qty @(v.Quantity == 0 ? "zero" : "")">×@v.Quantity</div>
+
+                                    <button class="vr-sell-btn"
+                                            @onclick="() => OpenVariantSell(v)"
+                                            @onclick:stopPropagation="true"
+                                            disabled="@(v.Quantity == 0)">
+                                        Sell
+                                    </button>
+
+                                    <button class="vr-delete"
+                                            @onclick="() => AskDeleteVariant(v)"
+                                            @onclick:stopPropagation="true">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (_sellingVariantId == v.Id)
+                            {
+                                <div class="variant-sell-form">
+                                    <div class="sell-form-row">
+                                        <div>
+                                            <label>Qty to Sell</label>
+                                            <input class="vf-input" type="number" min="1" max="@v.Quantity" @bind="_sellQty" />
+                                        </div>
+                                        <div>
+                                            <label>Notes</label>
+                                            <input class="vf-input" @bind="_sellNotes" placeholder="optional" />
+                                        </div>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(_sellError))
+                                    {
+                                        <p class="sell-error">@_sellError</p>
+                                    }
+
+                                    <div style="display:flex;gap:8px;margin-top:8px">
+                                        <button class="btn-sell" @onclick="() => RecordVariantSaleAsync(v)">✅ Confirm Sale</button>
+                                        <button class="btn-cancel-sell" @onclick="CancelSell">Cancel</button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4 class="drawer-section-title">Sale History</h4>
+                    <button class="btn-toggle-section" @onclick="ToggleSalesHistory">
+                        @(showSalesHistory ? "Hide" : "Show")
+                    </button>
+                </div>
+
+                @if (showSalesHistory)
+                {
+                    @if (_sales.Count == 0)
+                    {
+                        <p class="empty-variants">No sales recorded yet.</p>
+                    }
+                    else
+                    {
+                        <div class="sales-list">
+                            @foreach (var sale in _sales)
+                            {
+                                <div class="sale-row">
+                                    <div class="sale-left">
+                                        <span class="sale-date">@sale.SoldAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+
+                                        @if (!string.IsNullOrWhiteSpace(sale.VariantName))
+                                        {
+                                            <span class="sale-variant">@sale.VariantName</span>
+                                        }
+
+                                        @if (!string.IsNullOrWhiteSpace(sale.Notes))
+                                        {
+                                            <span class="sale-notes">@sale.Notes</span>
+                                        }
+                                    </div>
+
+                                    <div class="sale-right">
+                                        <span class="sale-qty">×@sale.QuantitySold</span>
+                                        <span class="sale-revenue">@sale.TotalRevenue.ToString("F2")</span>
+                                        <span class="sale-profit">+@sale.TotalProfit.ToString("F2")</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="sales-summary">
+                            <div class="summary-box">
+                                <span>Total Sold</span>
+                                <strong>@_sales.Sum(s => s.QuantitySold)</strong>
+                            </div>
+                            <div class="summary-box">
+                                <span>Revenue</span>
+                                <strong class="sale">@_sales.Sum(s => s.TotalRevenue).ToString("F2")</strong>
+                            </div>
+                            <div class="summary-box">
+                                <span>Profit</span>
+                                <strong class="sale">@_sales.Sum(s => s.TotalProfit).ToString("F2")</strong>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+        </div>
+    </div>
+}
+
+<ConfirmDialog IsOpen="@showDeleteVariantDialog"
+               Title="Delete variant"
+               Message="@($"Are you sure you want to delete '{_variantNameToDelete}'?")"
+               ConfirmText="Delete"
+               CancelText="Cancel"
+               IsDanger="true"
+               OnConfirm="ConfirmDeleteVariantAsync"
+               OnCancel="CancelDeleteVariant" />
+
+@code {
+    [Parameter] public Guid ProductId { get; set; }
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string Sku { get; set; } = "";
+    [Parameter] public string SalePrice { get; set; } = "";
+    [Parameter] public string CostPrice { get; set; } = "";
+    [Parameter] public int Quantity { get; set; }
+    [Parameter] public string Category { get; set; } = "";
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public string? ImageUrl { get; set; }
+
+    private int _currentQuantity;
+    private int _variantCount;
+
+    private bool showCost = false;
+    private bool drawerOpen = false;
+    private bool addingVariant = false;
+    private bool showSalesHistory = false;
+
+    private bool showDeleteVariantDialog = false;
+    private Guid _variantIdToDelete = Guid.Empty;
+    private string _variantNameToDelete = "";
+
+    private List<ProductVariantDto> _variants = new();
+    private List<SaleDto> _sales = new();
+    private CreateProductVariantDto _vModel = new();
+
+    private int _sellQty = 1;
+    private string _sellNotes = "";
+    private string _sellError = "";
+    private Guid? _sellingVariantId = null;
+
+    protected override void OnParametersSet()
+    {
+        _currentQuantity = Quantity;
+    }
+
+    private string StockLabel => _currentQuantity switch
+    {
+        0 => "Out of Stock",
+        <= 3 => "Low Stock",
+        _ => "In Stock"
+    };
+
+    private string StockStatusClass => _currentQuantity switch
+    {
+        0 => "status-out",
+        <= 3 => "status-low",
+        _ => "status-in"
+    };
+
+    private string GetVariantStatusLabel(int qty) => qty switch
+    {
+        0 => "Out",
+        <= 3 => "Low",
+        _ => "In Stock"
+    };
+
+    private string GetVariantStatusClass(int qty) => qty switch
+    {
+        0 => "status-out",
+        <= 3 => "status-low",
+        _ => "status-in"
+    };
+
+    private void ToggleCost() => showCost = !showCost;
+    private void ToggleAddVariant() => addingVariant = !addingVariant;
+    private void ToggleSalesHistory() => showSalesHistory = !showSalesHistory;
+
+    private async Task OpenDrawer()
+    {
+        _variants = await VariantService.GetByProductIdAsync(ProductId);
+        _sales = await SaleService.GetByProductIdAsync(ProductId);
+        _variantCount = _variants.Count;
+        _vModel = new CreateProductVariantDto { ProductId = ProductId, Quantity = 1 };
+        _sellQty = 1;
+        _sellError = "";
+        _sellNotes = "";
+        showSalesHistory = false;
+        drawerOpen = true;
+    }
+
+    private void CloseDrawer()
+    {
+        drawerOpen = false;
+        addingVariant = false;
+        _sellingVariantId = null;
+        _sellError = "";
+        showSalesHistory = false;
+        CancelDeleteVariant();
+    }
+
+    private void OpenVariantSell(ProductVariantDto v)
+    {
+        _sellingVariantId = v.Id;
+        _sellQty = 1;
+        _sellError = "";
+        _sellNotes = "";
+    }
+
+    private void CancelSell()
+    {
+        _sellingVariantId = null;
+        _sellError = "";
+    }
+
+    private void AskDeleteVariant(ProductVariantDto variant)
+    {
+        _variantIdToDelete = variant.Id;
+        _variantNameToDelete = variant.Name;
+        showDeleteVariantDialog = true;
+    }
+
+    private void CancelDeleteVariant()
+    {
+        showDeleteVariantDialog = false;
+        _variantIdToDelete = Guid.Empty;
+        _variantNameToDelete = "";
+    }
+
+    private async Task ConfirmDeleteVariantAsync()
+    {
+        if (_variantIdToDelete == Guid.Empty)
+            return;
+
+        await DeleteVariantAsync(_variantIdToDelete);
+        CancelDeleteVariant();
+    }
+
+    private async Task RecordProductSaleAsync()
+    {
+        _sellError = "";
+
+        if (_sellQty < 1)
+        {
+            _sellError = "Quantity must be at least 1.";
+            return;
+        }
+
+        if (_sellQty > _currentQuantity)
+        {
+            _sellError = $"Only {_currentQuantity} in stock.";
+            return;
+        }
+
+        try
+        {
+            await SaleService.RecordSaleAsync(new CreateSaleDto
+            {
+                ProductId = ProductId,
+                ProductName = Name,
+                QuantitySold = _sellQty,
+                SalePriceAtTime = decimal.Parse(SalePrice),
+                CostPriceAtTime = decimal.Parse(CostPrice),
+                Notes = _sellNotes
+            });
+
+            _currentQuantity -= _sellQty;
+            _sellQty = 1;
+            _sellNotes = "";
+            _sales = await SaleService.GetByProductIdAsync(ProductId);
+        }
+        catch (Exception ex)
+        {
+            _sellError = ex.Message;
+        }
+    }
+
+    private async Task RecordVariantSaleAsync(ProductVariantDto v)
+    {
+        _sellError = "";
+
+        if (_sellQty < 1)
+        {
+            _sellError = "Quantity must be at least 1.";
+            return;
+        }
+
+        if (_sellQty > v.Quantity)
+        {
+            _sellError = $"Only {v.Quantity} in stock.";
+            return;
+        }
+
+        try
+        {
+            await SaleService.RecordSaleAsync(new CreateSaleDto
+            {
+                ProductId = ProductId,
+                ProductVariantId = v.Id,
+                ProductName = Name,
+                VariantName = v.Name,
+                QuantitySold = _sellQty,
+                SalePriceAtTime = v.SalePrice,
+                CostPriceAtTime = v.CostPrice,
+                Notes = _sellNotes
+            });
+
+            v.Quantity -= _sellQty;
+            _sellingVariantId = null;
+            _sellQty = 1;
+            _sellNotes = "";
+            _sales = await SaleService.GetByProductIdAsync(ProductId);
+        }
+        catch (Exception ex)
+        {
+            _sellError = ex.Message;
+        }
+    }
+
+    private async Task SaveVariantAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_vModel.Name))
+            return;
+
+        _vModel.ProductId = ProductId;
+        await VariantService.AddAsync(_vModel);
+        _variants = await VariantService.GetByProductIdAsync(ProductId);
+        _variantCount = _variants.Count;
+        _vModel = new CreateProductVariantDto { ProductId = ProductId, Quantity = 1 };
+        addingVariant = false;
+    }
+
+    private async Task DeleteVariantAsync(Guid id)
+    {
+        await VariantService.DeleteAsync(id);
+        _variants = await VariantService.GetByProductIdAsync(ProductId);
+        _variantCount = _variants.Count;
+    }
+}

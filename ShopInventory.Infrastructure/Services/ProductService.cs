@@ -82,9 +82,26 @@ namespace ShopInventory.Infrastructure.Services
             Category = p.Category,
             Unit = p.Unit
         };
+        public async Task UpdateAsync(ProductDto dto)
+        {
+            var product = await _db.Product.FindAsync(dto.Id);
+            if (product is null) return;
+
+            product.Name = dto.Name;
+            product.Sku = dto.Sku;
+            product.Quantity = dto.Quantity;
+            product.SalePrice = dto.SalePrice;
+            product.CostPrice = dto.CostPrice;
+            product.Category = dto.Category;
+            product.Unit = dto.Unit;
+            product.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+        }
 
         private static string GenerateSku(string name) =>
             (name.Length >= 3 ? name[..3].ToUpper() : "SKU")
             + "-" + Guid.NewGuid().ToString()[..4].ToUpper();
     }
+
 }

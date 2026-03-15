@@ -1,0 +1,274 @@
+﻿@* @page "/billing"
+@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@inject IProductService ProductService
+@inject IProductVariantService VariantService
+@inject IBillService BillService
+
+<h3 class="page-title">Create Bill</h3>
+
+<div class="billing-shell">
+    <div class="billing-grid-top">
+        <BillCustomerSection CustomerName="@customerName"
+                             CustomerPhone="@customerPhone"
+                             CustomerAddress="@customerAddress"
+                             Notes="@notes"
+                             PaymentStatus="@paymentStatus"
+                             OnCustomerNameChanged="HandleCustomerNameChanged"
+                             OnCustomerPhoneChanged="HandleCustomerPhoneChanged"
+                             OnCustomerAddressChanged="HandleCustomerAddressChanged"
+                             OnNotesChanged="HandleNotesChanged"
+                             OnPaymentStatusChanged="HandlePaymentStatusChanged" />
+
+        <BillSummaryCard SubTotal="@SubTotal"
+                         DiscountAmount="@discountAmount"
+                         TaxAmount="@taxAmount"
+                         GrandTotal="@GrandTotal"
+                         OnDiscountChanged="(v => discountAmount = v)"
+                         OnTaxChanged="(v => taxAmount = v)"
+                         OnSaveBill="SaveBillAsync"
+                         OnClearBill="ClearBill" />
+    </div>
+
+    <div class="billing-grid-middle">
+        <BillProductPicker Products="@_products"
+                           Variants="@_variants"
+                           SelectedProductId="@selectedProductId"
+                           SelectedVariantId="@selectedVariantId"
+                           Quantity="@selectedQuantity"
+                           OnProductChanged="OnProductChangedAsync"
+                           OnVariantChanged="OnVariantChanged"
+                           OnQuantityChanged="(v => selectedQuantity = v)"
+                           OnAddItem="AddItemAsync" />
+    </div>
+
+    <div class="billing-grid-bottom">
+        <BillItemsTable Items="@billItems"
+                        OnRemoveItem="RemoveItem" />
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+            <div class="bill-message">@message</div>
+    }
+</div>
+
+@code {
+    private List<ProductDto> _products = new();
+    private List<ProductVariantDto> _variants = new();
+    private List<BillLineVm> billItems = new();
+
+    private Guid? selectedProductId;
+    private Guid? selectedVariantId;
+    private int selectedQuantity = 1;
+
+    private string customerName = "";
+    private string customerPhone = "";
+    private string customerAddress = "";
+    private string notes = "";
+    private int paymentStatus = 0; // 0 unpaid, 1 paid
+
+    private decimal discountAmount = 0;
+    private decimal taxAmount = 0;
+    private string message = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _products = await ProductService.GetAllAsync();
+    }
+
+    private decimal SubTotal => billItems.Sum(x => x.LineTotal);
+    private decimal GrandTotal => SubTotal - discountAmount + taxAmount;
+
+    private async Task OnProductChangedAsync(Guid? productId)
+    {
+        selectedProductId = productId;
+        selectedVariantId = null;
+        _variants.Clear();
+
+        if (productId.HasValue)
+        {
+            _variants = await VariantService.GetByProductIdAsync(productId.Value);
+        }
+    }
+
+    private Task OnVariantChanged(Guid? variantId)
+    {
+        selectedVariantId = variantId;
+        return Task.CompletedTask;
+    }
+
+    private async Task AddItemAsync()
+    {
+        message = "";
+
+        if (!selectedProductId.HasValue)
+        {
+            message = "Please select a product.";
+            return;
+        }
+
+        if (selectedQuantity < 1)
+        {
+            message = "Quantity must be at least 1.";
+            return;
+        }
+
+        var product = _products.FirstOrDefault(x => x.Id == selectedProductId.Value);
+        if (product is null)
+        {
+            message = "Product not found.";
+            return;
+        }
+
+        if (selectedVariantId.HasValue)
+        {
+            var variant = _variants.FirstOrDefault(x => x.Id == selectedVariantId.Value);
+            if (variant is null)
+            {
+                message = "Variant not found.";
+                return;
+            }
+
+            billItems.Add(new BillLineVm
+            {
+                ProductId = product.Id,
+                ProductVariantId = variant.Id,
+                ProductName = product.Name,
+                VariantName = variant.Name,
+                Sku = variant.Sku,
+                UnitPrice = variant.SalePrice,
+                CostPriceAtTime = variant.CostPrice,
+                Quantity = selectedQuantity,
+                LineTotal = variant.SalePrice * selectedQuantity
+            });
+        }
+        else
+        {
+            billItems.Add(new BillLineVm
+            {
+                ProductId = product.Id,
+                ProductVariantId = null,
+                ProductName = product.Name,
+                VariantName = null,
+                Sku = product.Sku,
+                UnitPrice = product.SalePrice,
+                CostPriceAtTime = product.CostPrice,
+                Quantity = selectedQuantity,
+                LineTotal = product.SalePrice * selectedQuantity
+            });
+        }
+
+        selectedQuantity = 1;
+        selectedVariantId = null;
+        await Task.CompletedTask;
+    }
+
+    private Task RemoveItem(Guid rowId)
+    {
+        var row = billItems.FirstOrDefault(x => x.RowId == rowId);
+        if (row is not null)
+            billItems.Remove(row);
+
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveBillAsync()
+    {
+        message = "";
+
+        if (billItems.Count == 0)
+        {
+            message = "Add at least one item to the bill.";
+            return;
+        }
+
+        var dto = new CreateBillDto
+        {
+            CustomerName = customerName,
+            CustomerPhone = customerPhone,
+            CustomerAddress = customerAddress,
+            Notes = notes,
+            PaymentMethod = "Cash",
+            PaymentStatus = paymentStatus,
+            DiscountAmount = discountAmount,
+            TaxAmount = taxAmount,
+            Items = billItems.Select(x => new CreateBillItemDto
+            {
+                ProductId = x.ProductId,
+                ProductVariantId = x.ProductVariantId,
+                ProductName = x.ProductName,
+                VariantName = x.VariantName,
+                Sku = x.Sku,
+                UnitPrice = x.UnitPrice,
+                CostPriceAtTime = x.CostPriceAtTime,
+                Quantity = x.Quantity
+            }).ToList()
+        };
+
+        var savedBill = await BillService.CreateAsync(dto);
+        message = $"Bill {savedBill.BillNo} created successfully.";
+
+        ClearBill();
+    }
+
+    private Task ClearBill()
+    {
+        billItems.Clear();
+        customerName = "";
+        customerPhone = "";
+        customerAddress = "";
+        notes = "";
+        paymentStatus = 0;
+        discountAmount = 0;
+        taxAmount = 0;
+        selectedProductId = null;
+        selectedVariantId = null;
+        selectedQuantity = 1;
+        _variants.Clear();
+        return Task.CompletedTask;
+    }
+
+    private class BillLineVm
+    {
+        public Guid RowId { get; set; } = Guid.NewGuid();
+        public Guid ProductId { get; set; }
+        public Guid? ProductVariantId { get; set; }
+        public string ProductName { get; set; } = "";
+        public string? VariantName { get; set; }
+        public string? Sku { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal CostPriceAtTime { get; set; }
+        public int Quantity { get; set; }
+        public decimal LineTotal { get; set; }
+    }
+    private Task HandleCustomerNameChanged(string value)
+    {
+        customerName = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCustomerPhoneChanged(string value)
+    {
+        customerPhone = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleCustomerAddressChanged(string value)
+    {
+        customerAddress = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleNotesChanged(string value)
+    {
+        notes = value;
+        return Task.CompletedTask;
+    }
+
+    private Task HandlePaymentStatusChanged(int value)
+    {
+        paymentStatus = value;
+        return Task.CompletedTask;
+    }
+} *@
