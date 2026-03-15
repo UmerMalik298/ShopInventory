@@ -18,6 +18,7 @@ namespace ShopInventory.Domain.Entities.Billing
         public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Unpaid;
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
 
+        public BillStatus Status { get; set; } = BillStatus.Finalised;
         public ICollection<BillItem> Items { get; set; } = new List<BillItem>();
     }
 

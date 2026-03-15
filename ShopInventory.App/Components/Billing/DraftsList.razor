@@ -1,0 +1,378 @@
+﻿@* Components/Billing/DraftsList.razor *@
+@* Add a tab/link to this from your BillingList page *@
+@using ShopInventory.Domain.Entities.Billing
+@using ShopInventory.Domain.Entities.Enums
+@using ShopInventory.Application.Interfaces
+@inject IBillService BillService
+@inject NavigationManager Navigation
+
+<div class="drafts-page">
+
+    <div class="drafts-header">
+        <div>
+            <h2 class="drafts-title">Draft Bills</h2>
+            <p class="drafts-sub">Bills saved as drafts — stock is not deducted until finalised.</p>
+        </div>
+        <button class="btn-new-bill" @onclick="@(() => Navigation.NavigateTo("/billing/create"))">
+            + New Bill
+        </button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="drafts-empty">
+            <div class="d-spinner"></div>
+        </div>
+    }
+    else if (_drafts.Count == 0)
+    {
+        <div class="drafts-empty">
+            <div class="empty-icon">📝</div>
+            <p>No drafts yet. Click <strong>Save Draft</strong> while creating a bill.</p>
+        </div>
+    }
+    else
+    {
+        <div class="drafts-list">
+            @foreach (var draft in _drafts)
+            {
+                <div class="draft-card">
+                    <div class="draft-left">
+                        <div class="draft-no">@draft.BillNo</div>
+                        <div class="draft-meta">
+                            @if (!string.IsNullOrWhiteSpace(draft.CustomerName))
+                            {
+                                <span class="draft-customer">@draft.CustomerName</span>
+                                <span class="draft-sep">·</span>
+                            }
+                            <span>@draft.BilledAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</span>
+                        </div>
+                        <div class="draft-items-preview">
+                            @string.Join(", ", draft.Items.Take(3).Select(i =>
+                            string.IsNullOrEmpty(i.VariantName) ? i.ProductName : $"{i.ProductName} ({i.VariantName})"))
+                    @if (draft.Items.Count > 3)
+                            {
+                                <span> +@(draft.Items.Count - 3) more</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="draft-right">
+                        <div class="draft-total">Rs. @draft.TotalAmount.ToString("N0")</div>
+                        <div class="draft-count">@draft.Items.Count item(s)</div>
+                        <div class="draft-actions">
+                            <button class="btn-edit-draft"
+                                    @onclick="@(() => Navigation.NavigateTo($"/billing/create/{draft.Id}"))">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn-delete-draft" @onclick="@(() => ConfirmDelete(draft))">
+                                🗑
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Delete confirm -->
+@if (_deleteTarget is not null)
+{
+    <div class="del-overlay" @onclick="CancelDelete">
+        <div class="del-dialog" @onclick:stopPropagation="true">
+            <div class="del-icon">🗑️</div>
+            <h4>Delete Draft?</h4>
+            <p>Delete draft <strong>@_deleteTarget.BillNo</strong>? This cannot be undone.</p>
+            <div class="del-actions">
+                <button class="del-cancel" @onclick="CancelDelete">Cancel</button>
+                <button class="del-confirm" @onclick="DeleteDraft">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .drafts-page {
+        padding: 1.5rem;
+    }
+
+    .drafts-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .drafts-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #111;
+        margin: 0 0 4px;
+    }
+
+    .drafts-sub {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .btn-new-bill {
+        padding: 9px 18px;
+        background: #0f172a;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+        .btn-new-bill:hover {
+            background: #1e293b;
+        }
+
+    .drafts-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem;
+        gap: 12px;
+        color: #9ca3af;
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .empty-icon {
+        font-size: 36px;
+    }
+
+    .d-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #111;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .drafts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .draft-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 16px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        transition: box-shadow .15s;
+    }
+
+        .draft-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,.07);
+        }
+
+    .draft-left {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .draft-no {
+        font-size: 13px;
+        font-weight: 700;
+        color: #111;
+        font-family: monospace;
+        margin-bottom: 3px;
+    }
+
+    .draft-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 5px;
+    }
+
+    .draft-customer {
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .draft-sep {
+        color: #d1d5db;
+    }
+
+    .draft-items-preview {
+        font-size: 12px;
+        color: #9ca3af;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .draft-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .draft-total {
+        font-size: 16px;
+        font-weight: 700;
+        color: #111;
+    }
+
+    .draft-count {
+        font-size: 11px;
+        color: #9ca3af;
+    }
+
+    .draft-actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    .btn-edit-draft {
+        padding: 6px 12px;
+        background: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+        .btn-edit-draft:hover {
+            background: #dbeafe;
+        }
+
+    .btn-delete-draft {
+        padding: 6px 10px;
+        background: #fff5f5;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+        .btn-delete-draft:hover {
+            background: #fee2e2;
+        }
+
+    /* Delete confirm dialog */
+    .del-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+    }
+
+    .del-dialog {
+        background: #fff;
+        border-radius: 18px;
+        padding: 28px 24px;
+        max-width: 340px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+
+    .del-icon {
+        font-size: 32px;
+        margin-bottom: 12px;
+    }
+
+    .del-dialog h4 {
+        font-size: 17px;
+        font-weight: 700;
+        color: #111;
+        margin: 0 0 8px;
+    }
+
+    .del-dialog p {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0 0 20px;
+        line-height: 1.5;
+    }
+
+    .del-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .del-cancel {
+        flex: 1;
+        padding: 10px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+        cursor: pointer;
+    }
+
+        .del-cancel:hover {
+            background: #e2e8f0;
+        }
+
+    .del-confirm {
+        flex: 1;
+        padding: 10px;
+        background: #dc2626;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #fff;
+        cursor: pointer;
+    }
+
+        .del-confirm:hover {
+            background: #b91c1c;
+        }
+</style>
+
+@code {
+    private List<Bill> _drafts = new();
+    private bool _loading = true;
+    private Bill? _deleteTarget = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _drafts = await BillService.GetAllDraftsAsync();
+        _loading = false;
+    }
+
+    private void ConfirmDelete(Bill draft) => _deleteTarget = draft;
+    private void CancelDelete() => _deleteTarget = null;
+
+    private async Task DeleteDraft()
+    {
+        if (_deleteTarget is null) return;
+        await BillService.DeleteBillAsync(_deleteTarget.Id);
+        _drafts.Remove(_deleteTarget);
+        _deleteTarget = null;
+    }
+}

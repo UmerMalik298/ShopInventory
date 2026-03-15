@@ -61,11 +61,14 @@ public static class MauiProgram
             {
                 using var scope = app.Services.CreateScope();
                 var sync = scope.ServiceProvider.GetRequiredService<ISyncService>();
-                await sync.SyncAsync();
+                Console.WriteLine(">>> About to call SyncAsync");
+                sync.SyncAsync();
+                Console.WriteLine(">>> SyncAsync completed");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Sync error: {ex}");
+                Console.WriteLine($">>> SYNC CATCH: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($">>> INNER: {ex.InnerException?.Message}");
             }
         });
 

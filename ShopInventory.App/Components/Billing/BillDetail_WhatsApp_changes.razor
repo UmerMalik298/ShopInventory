@@ -1,0 +1,446 @@
+﻿@page "/billing/{Id:guid}"
+@using ShopInventory.Domain.Entities.Enums
+@using ShopInventory.Domain.Entities.Sales
+@using ShopInventory.Domain.Entities.Billing
+@using ShopInventory.Application.Interfaces
+@inject IBillService BillService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ShopInventory.App.Services.BillPdfService BillPdfService
+
+<div class="bill-detail-page" id="bill-detail-page">
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+        </div>
+    }
+    else if (bill == null)
+    {
+        <div class="not-found">
+            <p>Bill not found.</p>
+            <button @onclick="GoBack">Go back</button>
+        </div>
+    }
+    else
+    {
+        <!-- Top Bar -->
+        <div class="top-bar no-print">
+            <button class="btn-back" @onclick="GoBack">&#8592; All Bills</button>
+            <div class="top-actions">
+                <select class="status-select @GetStatusSelectClass(bill.PaymentStatus)"
+                        @bind="bill.PaymentStatus"
+                        @bind:after="SaveStatus">
+                    <option value="@PaymentStatus.Unpaid">Unpaid</option>
+                    <option value="@PaymentStatus.Paid">Paid</option>
+                    <option value="@PaymentStatus.PartiallyPaid">Partially Paid</option>
+                </select>
+
+                <button class="btn-action btn-print" @onclick="PrintBill" title="Print">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    <span>Print</span>
+                </button>
+
+                <!-- WhatsApp Share Button -->
+                <button class="btn-action btn-share" @onclick="OpenWhatsApp" title="Share via WhatsApp">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                    </svg>
+                    <span>WhatsApp</span>
+                </button>
+
+                <button class="btn-action btn-download" @onclick="DownloadBill" title="Download">
+                    <svg class="dl-arrow" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3v13" />
+                        <polyline points="7 13 12 18 17 13" />
+                        <path d="M3 21h18" />
+                    </svg>
+                    <span>Save PDF</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Bill Receipt -->
+        <div class="receipt-wrap" id="printArea">
+            <div class="receipt">
+
+                <div class="receipt-header">
+                    <div class="shop-name">Sheer Rabbani Autos</div>
+                    <div class="shop-sub">Receipt / Invoice</div>
+                </div>
+
+                <div class="receipt-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">Bill No.</span>
+                        <span class="meta-value mono">@bill.BillNo</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Date</span>
+                        <span class="meta-value">@bill.BilledAt.ToString("dd MMM yyyy, hh:mm tt")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(bill.CustomerName))
+                    {
+                        <div class="meta-row">
+                            <span class="meta-label">Customer</span>
+                            <span class="meta-value">@bill.CustomerName</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(bill.CustomerPhone))
+                    {
+                        <div class="meta-row">
+                            <span class="meta-label">Phone</span>
+                            <span class="meta-value">@bill.CustomerPhone</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="items-section">
+                    <div class="items-header">
+                        <span>Item</span>
+                        <span>Qty</span>
+                        <span>Price</span>
+                        <span>Total</span>
+                    </div>
+                    @foreach (var item in bill.Items)
+                    {
+                        <div class="item-row">
+                            <span class="item-name-col">
+                                @item.ProductName
+                                @if (!string.IsNullOrEmpty(item.VariantName))
+                                {
+                                    <span class="variant-small">(@item.VariantName)</span>
+                                }
+                            </span>
+                            <span>@item.Quantity</span>
+                            <span>@item.UnitPrice.ToString("N0")</span>
+                            <span class="item-total">@item.TotalPrice.ToString("N0")</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="totals-section">
+                    <div class="total-row">
+                        <span>Subtotal</span>
+                        <span>Rs. @bill.SubTotal.ToString("N0")</span>
+                    </div>
+                    @if (bill.DiscountAmount > 0)
+                    {
+                        <div class="total-row discount-row">
+                            <span>Discount</span>
+                            <span>− Rs. @bill.DiscountAmount.ToString("N0")</span>
+                        </div>
+                    }
+                    <div class="total-row grand">
+                        <span>Total</span>
+                        <span>Rs. @bill.TotalAmount.ToString("N0")</span>
+                    </div>
+                </div>
+
+                <div class="payment-info">
+                    <div class="pay-row">
+                        <span>Payment Method</span>
+                        <span>@bill.PaymentMethod</span>
+                    </div>
+                    <div class="pay-row">
+                        <span>Payment Status</span>
+                        <span class="status-badge @GetStatusClass(bill.PaymentStatus)">
+                            @bill.PaymentStatus
+                        </span>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(bill.Notes))
+                {
+                    <div class="receipt-notes">
+                        <span class="notes-label">Notes:</span> @bill.Notes
+                    </div>
+                }
+
+                <div class="receipt-footer">
+                    <p>Thank you for your purchase!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- WhatsApp Dialog — outside receipt, inside the else block -->
+        @if (showWhatsAppDialog)
+        {
+            <div class="wa-overlay" @onclick="CloseWhatsApp">
+                <div class="wa-dialog" @onclick:stopPropagation="true">
+                    <div class="wa-header">
+                        <div class="wa-icon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="wa-title">Share via WhatsApp</div>
+                            <div class="wa-subtitle">Send the bill receipt as a message</div>
+                        </div>
+                    </div>
+
+                    <div class="wa-body">
+                        @if (!string.IsNullOrWhiteSpace(bill.CustomerPhone))
+                        {
+                            <button class="wa-option-btn @(waUseCustomerPhone ? "selected" : "")"
+                                    @onclick="@(() => { waUseCustomerPhone = true; waCustomPhone = ""; })">
+                                <div class="wa-option-label">Send to customer</div>
+                                <div class="wa-option-val">@bill.CustomerPhone</div>
+                            </button>
+                        }
+                        <button class="wa-option-btn @(!waUseCustomerPhone ? "selected" : "")"
+                                @onclick="@(() => waUseCustomerPhone = false)">
+                            <div class="wa-option-label">Enter a different number</div>
+                            @if (!waUseCustomerPhone)
+                            {
+                                <input type="tel" class="wa-phone-input"
+                                       placeholder="+92 300 0000000"
+                                       value="@waCustomPhone"
+                                       @oninput="@((e) => waCustomPhone = e.Value?.ToString() ?? "")"
+                                       @onclick:stopPropagation="true" />
+                            }
+                        </button>
+                    </div>
+
+                    <div class="wa-actions">
+                        <button class="wa-btn-cancel" @onclick="CloseWhatsApp">Cancel</button>
+                        <button class="wa-btn-send" @onclick="SendWhatsApp">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                            </svg>
+                            Open WhatsApp
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Bill? bill;
+    private bool isLoading = true;
+
+    // WhatsApp
+    private bool   showWhatsAppDialog = false;
+    private bool   waUseCustomerPhone = true;
+    private string waCustomPhone      = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        bill = await BillService.GetBillByIdAsync(Id);
+        isLoading = false;
+    }
+
+    private async Task SaveStatus()
+    {
+        if (bill != null)
+            await BillService.UpdatePaymentStatusAsync(bill.Id, bill.PaymentStatus);
+    }
+
+    private async Task PrintBill()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private async Task DownloadBill()
+    {
+        if (bill == null) return;
+        try
+        {
+            var pdfBytes = BillPdfService.GeneratePdf(bill);
+            var base64   = Convert.ToBase64String(pdfBytes);
+            var fileName = $"{bill.BillNo}.pdf";
+            await JS.InvokeVoidAsync("downloadPdfFile", fileName, base64);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PDF generation failed: {ex.Message}");
+        }
+    }
+
+    // ── WhatsApp ──────────────────────────────────────────────────────────
+    private void OpenWhatsApp()
+    {
+        waUseCustomerPhone = !string.IsNullOrWhiteSpace(bill?.CustomerPhone);
+        waCustomPhone      = "";
+        showWhatsAppDialog = true;
+    }
+
+    private void CloseWhatsApp() => showWhatsAppDialog = false;
+
+    private void SendWhatsApp()
+    {
+        var phone = waUseCustomerPhone ? bill?.CustomerPhone ?? "" : waCustomPhone;
+        if (string.IsNullOrWhiteSpace(phone)) return;
+
+        phone = phone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "");
+        if (phone.StartsWith("+")) phone = phone[1..];
+        if (phone.StartsWith("0")) phone = "92" + phone[1..];
+
+        var text    = BuildReceiptText();
+        var encoded = Uri.EscapeDataString(text);
+        var url     = $"https://wa.me/{phone}?text={encoded}";
+
+        Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Uri(url));
+        CloseWhatsApp();
+    }
+
+    // ── Receipt text for WhatsApp ─────────────────────────────────────────
+    private string BuildReceiptText()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("========================================");
+        sb.AppendLine("           SHEER RABBANI AUTOS");
+        sb.AppendLine("              RECEIPT");
+        sb.AppendLine("========================================");
+        sb.AppendLine($"Bill No : {bill!.BillNo}");
+        sb.AppendLine($"Date    : {bill.BilledAt:dd MMM yyyy, hh:mm tt}");
+        if (!string.IsNullOrEmpty(bill.CustomerName))
+            sb.AppendLine($"Customer: {bill.CustomerName}");
+        if (!string.IsNullOrEmpty(bill.CustomerPhone))
+            sb.AppendLine($"Phone   : {bill.CustomerPhone}");
+        sb.AppendLine("----------------------------------------");
+        sb.AppendLine($"{"Item",-22} {"Qty",4} {"Price",8} {"Total",8}");
+        sb.AppendLine("----------------------------------------");
+        foreach (var item in bill.Items)
+        {
+            var name = string.IsNullOrEmpty(item.VariantName)
+                ? item.ProductName
+                : $"{item.ProductName} ({item.VariantName})";
+            if (name.Length > 22) name = name[..22];
+            sb.AppendLine($"{name,-22} {item.Quantity,4} {item.UnitPrice,8:N0} {item.TotalPrice,8:N0}");
+        }
+        sb.AppendLine("----------------------------------------");
+        sb.AppendLine($"{"Subtotal",-30} {"Rs. " + bill.SubTotal.ToString("N0"),10}");
+        if (bill.DiscountAmount > 0)
+            sb.AppendLine($"{"Discount",-30} {"-Rs. " + bill.DiscountAmount.ToString("N0"),10}");
+        sb.AppendLine($"{"TOTAL",-30} {"Rs. " + bill.TotalAmount.ToString("N0"),10}");
+        sb.AppendLine("========================================");
+        sb.AppendLine($"Payment : {bill.PaymentMethod}");
+        sb.AppendLine($"Status  : {bill.PaymentStatus}");
+        if (!string.IsNullOrEmpty(bill.Notes))
+            sb.AppendLine($"Notes   : {bill.Notes}");
+        sb.AppendLine("========================================");
+        sb.AppendLine("      Thank you for your purchase!");
+        sb.AppendLine("========================================");
+        return sb.ToString();
+    }
+
+    private string GetStatusClass(PaymentStatus status) => status switch
+    {
+        PaymentStatus.Paid          => "badge-paid",
+        PaymentStatus.Unpaid        => "badge-unpaid",
+        PaymentStatus.PartiallyPaid => "badge-partial",
+        _                           => ""
+    };
+
+    private string GetStatusSelectClass(PaymentStatus status) => status switch
+    {
+        PaymentStatus.Paid          => "select-paid",
+        PaymentStatus.Unpaid        => "select-unpaid",
+        PaymentStatus.PartiallyPaid => "select-partial",
+        _                           => ""
+    };
+
+    private void GoBack() => Navigation.NavigateTo("/billing");
+}
+
+<style>
+    .bill-detail-page { padding: 1rem 1.25rem; max-width: 640px; margin: 0 auto; }
+    .top-bar { display: flex; align-items: center; margin-bottom: 1.25rem; gap: 12px; }
+    .btn-back { background: none; border: none; font-size: 15px; color: #555; cursor: pointer; padding: 6px 10px; border-radius: 8px; flex: 1; text-align: left; }
+    .btn-back:hover { background: #f3f4f6; }
+    .top-actions { display: flex; gap: 8px; align-items: center; }
+
+    .status-select { padding: 7px 12px; border-radius: 9px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; outline: none; }
+    .select-unpaid  { background: #fef3c7; color: #92400e; }
+    .select-paid    { background: #d1fae5; color: #065f46; }
+    .select-partial { background: #dbeafe; color: #1e40af; }
+
+    .btn-action { display: flex; align-items: center; gap: 6px; padding: 7px 13px; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s ease; }
+    .btn-action span { font-size: 12px; }
+    .btn-print    { background: #1a1a1a; color: #fff; }
+    .btn-print:hover { background: #333; }
+    .btn-share    { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .btn-share:hover { background: #dcfce7; }
+    .btn-download { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .btn-download:hover { background: #dcfce7; }
+    .btn-download:hover .dl-arrow { animation: bounceDown .5s ease infinite; }
+    @@keyframes bounceDown { 0%,100% { transform:translateY(0); } 50% { transform:translateY(3px); } }
+
+    .receipt-wrap { display: flex; justify-content: center; }
+    .receipt { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.75rem; width: 100%; max-width: 480px; }
+    .receipt-header { text-align: center; margin-bottom: 1.25rem; }
+    .shop-name { font-size: 22px; font-weight: 700; color: #111; }
+    .shop-sub  { font-size: 13px; color: #9ca3af; margin-top: 2px; }
+    .receipt-meta { margin-bottom: 1.25rem; }
+    .meta-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #f0f0f0; font-size: 13px; }
+    .meta-label { color: #6b7280; }
+    .meta-value { font-weight: 500; color: #111; }
+    .mono { font-family: monospace; font-size: 12px; }
+
+    .items-section { margin-bottom: 1rem; }
+    .items-header { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; padding: 6px 0; border-bottom: 2px solid #111; margin-bottom: 4px; }
+    .item-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; padding: 7px 0; border-bottom: 1px dashed #f0f0f0; font-size: 13px; align-items: center; }
+    .item-row:last-child { border-bottom: none; }
+    .item-name-col { display: flex; flex-direction: column; gap: 1px; }
+    .variant-small { font-size: 11px; color: #6b7280; }
+    .item-total { font-weight: 600; color: #111; text-align: right; }
+
+    .totals-section { border-top: 2px solid #111; padding-top: 10px; margin-bottom: 1rem; }
+    .total-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; color: #374151; }
+    .total-row.grand { font-size: 18px; font-weight: 700; color: #111; border-top: 1px solid #e5e7eb; margin-top: 6px; padding-top: 8px; }
+    .discount-row { color: #059669; }
+
+    .payment-info { background: #f9fafb; border-radius: 10px; padding: 10px 14px; margin-bottom: 1rem; }
+    .pay-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-paid    { background: #d1fae5; color: #065f46; }
+    .badge-unpaid  { background: #fef3c7; color: #92400e; }
+    .badge-partial { background: #dbeafe; color: #1e40af; }
+
+    .receipt-notes { font-size: 13px; color: #6b7280; font-style: italic; border-top: 1px dashed #e5e7eb; padding-top: 10px; margin-bottom: 10px; }
+    .notes-label { font-weight: 600; color: #374151; font-style: normal; }
+    .receipt-footer { text-align: center; font-size: 13px; color: #9ca3af; border-top: 1px dashed #e5e7eb; padding-top: 12px; margin-top: 4px; }
+
+    .loading-state { display: flex; justify-content: center; padding: 3rem; }
+    .spinner { width: 28px; height: 28px; border: 3px solid #e5e7eb; border-top-color: #111; border-radius: 50%; animation: spin .7s linear infinite; }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+
+    @@media print {
+        .no-print { display: none !important; }
+        .bill-detail-page { padding: 0; }
+        .receipt { border: none; padding: 0; }
+        .receipt-wrap { justify-content: flex-start; }
+    }
+
+    /* WhatsApp Dialog */
+    .wa-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 1rem; animation: waIn .15s ease; }
+    @@keyframes waIn { from { opacity:0 } to { opacity:1 } }
+    .wa-dialog { background: #fff; border-radius: 18px; padding: 24px; max-width: 380px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: waPop .22s cubic-bezier(.34,1.56,.64,1); }
+    @@keyframes waPop { from { transform:scale(.88); opacity:0 } to { transform:scale(1); opacity:1 } }
+    .wa-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .wa-icon { width: 46px; height: 46px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .wa-title { font-size: 16px; font-weight: 700; color: #111; }
+    .wa-subtitle { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    .wa-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .wa-option-btn { text-align: left; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; background: #fff; cursor: pointer; transition: all .15s; width: 100%; }
+    .wa-option-btn:hover, .wa-option-btn.selected { border-color: #22c55e; background: #f0fdf4; }
+    .wa-option-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .wa-option-val { font-size: 14px; font-weight: 600; color: #111; }
+    .wa-phone-input { width: 100%; margin-top: 6px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; }
+    .wa-phone-input:focus { border-color: #22c55e; }
+    .wa-actions { display: flex; gap: 10px; }
+    .wa-btn-cancel { flex: 1; padding: 10px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; }
+    .wa-btn-cancel:hover { background: #e2e8f0; }
+    .wa-btn-send { flex: 2; padding: 10px; background: #16a34a; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; }
+    .wa-btn-send:hover { background: #15803d; }
+</style>

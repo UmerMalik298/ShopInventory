@@ -1,4 +1,4 @@
-Add-Migration ProductVariants -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
+Add-Migration DraftBills -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
 Update-Database -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
 
 

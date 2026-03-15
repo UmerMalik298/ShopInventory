@@ -1,4 +1,5 @@
 @page "/billing/create"
+@page "/billing/create/{DraftId:guid}"
 @using ShopInventory.Domain.Entities.Sales
 @using ShopInventory.Domain.Entities.Enums
 @using ShopInventory.Domain.Entities.Billing
@@ -14,19 +15,30 @@
     <!-- Top Bar -->
     <div class="top-bar">
         <button class="btn-back" @onclick="GoBack">&#8592; Back</button>
-        <h2>New Bill</h2>
+        <h2>@(isDraftMode ? "Edit Draft" : "New Bill")</h2>
         <div class="top-actions">
-            <button class="btn-outline" @onclick="SaveDraft" disabled="@isSaving">Save Draft</button>
+            <button class="btn-outline" @onclick="SaveDraft" disabled="@isSaving">
+                @(isSaving && savingAsDraft ? "Saving..." : "Save Draft")
+            </button>
             <button class="btn-primary" @onclick="SaveBill" disabled="@(billItems.Count == 0 || isSaving)">
-                @(isSaving ? "Saving..." : "Save Bill")
+                @(isSaving && !savingAsDraft ? "Saving..." : isDraftMode ? "Finalise Bill" : "Save Bill")
             </button>
         </div>
     </div>
 
     <div class="bill-layout">
 
-        <!-- LEFT: Customer + Items -->
+        <!-- LEFT -->
         <div class="left-col">
+
+            <!-- Draft badge -->
+            @if (isDraftMode)
+            {
+                <div class="draft-banner">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                    Editing draft — click <strong>Finalise Bill</strong> to save and deduct stock.
+                </div>
+            }
 
             <!-- Customer Info -->
             <div class="section-card">
@@ -49,8 +61,6 @@
 
             <!-- Add Products -->
             <div class="section-card">
-
-                <!-- Section header with Manual Item toggle -->
                 <div class="add-products-header">
                     <div class="section-title" style="margin-bottom:0">Add Products</div>
                     <button class="btn-manual-toggle @(showManual ? "active" : "")"
@@ -68,7 +78,7 @@
                     </button>
                 </div>
 
-                <!-- Product Search -->
+                <!-- Search -->
                 <div class="search-area" style="margin-top:14px">
                     <div class="search-wrap">
                         <input type="text"
@@ -87,8 +97,7 @@
                                     {
                                         @foreach (var variant in product.Variants)
                                         {
-                                            var p = product;
-                                            var v = variant;
+                                            var p = product; var v = variant;
                                             bool oos = v.Quantity <= 0;
                                             <div class="dropdown-item @(oos ? "item-oos" : "")"
                                                  @onmousedown="@(() => HandleVariantClick(p, v))">
@@ -131,7 +140,7 @@
                     </div>
                 </div>
 
-                <!-- Manual Item panel — only when toggled -->
+                <!-- Manual panel -->
                 @if (showManual)
                 {
                     <div class="manual-panel">
@@ -162,13 +171,7 @@
                 {
                     <table class="items-table">
                         <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Qty</th>
-                                <th>Unit Price</th>
-                                <th>Total</th>
-                                <th></th>
-                            </tr>
+                            <tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th></th></tr>
                         </thead>
                         <tbody>
                             @foreach (var item in billItems)
@@ -188,12 +191,12 @@
                                         </div>
                                     </td>
                                     <td>
+                                        @{
+                                            var atMax = item.ProductId != Guid.Empty &&
+                                            _stockLimits.TryGetValue(StockKey(item.ProductId, item.ProductVariantId), out var maxQ) &&
+                                            item.Quantity >= maxQ;
+                                        }
                                         <div class="qty-ctrl">
-                                            @{
-                                                var atMax = item.ProductId != Guid.Empty &&
-                                                _stockLimits.TryGetValue(StockKey(item.ProductId, item.ProductVariantId), out var maxQty) &&
-                                                item.Quantity >= maxQty;
-                                            }
                                             <button @onclick="@(() => ChangeQty(item, -1))">−</button>
                                             <span>@item.Quantity</span>
                                             <button @onclick="@(() => ChangeQty(item, 1))"
@@ -209,9 +212,7 @@
                                                @onchange="@((e) => UpdatePrice(item, e))" />
                                     </td>
                                     <td class="total-cell">Rs. @((item.UnitPrice * item.Quantity).ToString("N0"))</td>
-                                    <td>
-                                        <button class="btn-remove" @onclick="@(() => billItems.Remove(item))">✕</button>
-                                    </td>
+                                    <td><button class="btn-remove" @onclick="@(() => billItems.Remove(item))">✕</button></td>
                                 </tr>
                             }
                         </tbody>
@@ -220,23 +221,20 @@
             </div>
         </div>
 
-        <!-- RIGHT: Bill Summary -->
+        <!-- RIGHT: Summary -->
         <div class="right-col">
             <div class="section-card summary-card">
                 <div class="section-title">Bill Summary</div>
-
                 <div class="bill-no-display">
                     <span class="label">Bill No.</span>
-                    <span class="value mono">Auto-generated on save</span>
+                    <span class="value mono">@(isDraftMode? currentDraftBillNo : "Auto-generated on save")</span>
                 </div>
                 <div class="bill-no-display">
                     <span class="label">Date</span>
                     <span class="value">@DateTime.Now.ToString("dd MMM yyyy")</span>
                 </div>
-
                 <div class="divider"></div>
 
-                <!-- Live item list in summary -->
                 @if (billItems.Count > 0)
                 {
                     <div class="summary-items">
@@ -275,7 +273,6 @@
                     <span>Total</span>
                     <span>Rs. @GrandTotal.ToString("N0")</span>
                 </div>
-
                 <div class="divider"></div>
 
                 <div class="form-field">
@@ -286,7 +283,6 @@
                         <option value="@PaymentStatus.PartiallyPaid">Partially Paid</option>
                     </select>
                 </div>
-
                 <div class="form-field">
                     <label>Payment Method</label>
                     <select @bind="paymentMethod">
@@ -295,18 +291,71 @@
                         <option value="@PaymentMethod.Online">Online Transfer</option>
                     </select>
                 </div>
-
                 <div class="divider"></div>
 
                 <button class="btn-save-full" @onclick="SaveBill"
                         disabled="@(billItems.Count == 0 || isSaving)">
-                    @(isSaving ? "Saving..." : "Save Bill")
+                    @(isSaving && !savingAsDraft ? "Saving..." : isDraftMode ? "Finalise Bill" : "Save Bill")
                 </button>
             </div>
         </div>
-
     </div>
 </div>
+
+<!-- WhatsApp Share Dialog -->
+@if (showWhatsAppDialog)
+{
+    <div class="wa-overlay" @onclick="CloseWhatsApp">
+        <div class="wa-dialog" @onclick:stopPropagation="true">
+            <div class="wa-header">
+                <div class="wa-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="wa-title">Share via WhatsApp</div>
+                    <div class="wa-subtitle">Send the bill receipt as a message</div>
+                </div>
+            </div>
+
+            <div class="wa-body">
+                @if (!string.IsNullOrWhiteSpace(customerPhone))
+                {
+                    <button class="wa-option-btn @(waUseCustomerPhone ? "selected" : "")"
+                            @onclick="@(() => { waUseCustomerPhone = true; waCustomPhone = ""; })">
+                        <div class="wa-option-label">Send to customer</div>
+                        <div class="wa-option-val">@customerPhone</div>
+                    </button>
+                }
+
+                <button class="wa-option-btn @(!waUseCustomerPhone ? "selected" : "")"
+                        @onclick="@(() => waUseCustomerPhone = false)">
+                    <div class="wa-option-label">Enter a different number</div>
+                    @if (!waUseCustomerPhone)
+                    {
+                        <input type="tel"
+                               class="wa-phone-input"
+                               placeholder="+92 300 0000000"
+                               value="@waCustomPhone"
+                               @oninput="@((e) => waCustomPhone = e.Value?.ToString() ?? "")"
+                               @onclick:stopPropagation="true" />
+                    }
+                </button>
+            </div>
+
+            <div class="wa-actions">
+                <button class="wa-btn-cancel" @onclick="CloseWhatsApp">Cancel</button>
+                <button class="wa-btn-send" @onclick="SendWhatsApp">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+                    </svg>
+                    Open WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 <OutOfStockWarningDialog @ref="_oosDialog" />
 <ItemAddedToast @ref="_addedToast" />
@@ -317,6 +366,19 @@
 }
 
 <style>
+    .draft-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        color: #92400e;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+        margin-bottom: 14px;
+    }
+
     .add-products-header {
         display: flex;
         align-items: center;
@@ -522,18 +584,209 @@
         color: #111827;
         white-space: nowrap;
     }
+
+    /* WhatsApp Dialog */
+    .wa-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(3px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        padding: 1rem;
+        animation: waIn .15s ease;
+    }
+
+    @@keyframes waIn {
+        from {
+            opacity: 0
+        }
+
+        to {
+            opacity: 1
+        }
+    }
+
+    .wa-dialog {
+        background: #fff;
+        border-radius: 18px;
+        padding: 24px;
+        max-width: 380px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,.2);
+        animation: waPop .22s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @@keyframes waPop {
+        from {
+            transform: scale(.88);
+            opacity: 0
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1
+        }
+    }
+
+    .wa-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .wa-icon {
+        width: 46px;
+        height: 46px;
+        background: #dcfce7;
+        color: #16a34a;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .wa-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #111;
+    }
+
+    .wa-subtitle {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 2px;
+    }
+
+    .wa-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .wa-option-btn {
+        text-align: left;
+        padding: 12px 14px;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fff;
+        cursor: pointer;
+        transition: all .15s;
+        width: 100%;
+    }
+
+        .wa-option-btn:hover {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+        .wa-option-btn.selected {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+    .wa-option-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        margin-bottom: 4px;
+    }
+
+    .wa-option-val {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111;
+    }
+
+    .wa-phone-input {
+        width: 100%;
+        margin-top: 6px;
+        padding: 8px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+    }
+
+        .wa-phone-input:focus {
+            border-color: #22c55e;
+        }
+
+    .wa-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .wa-btn-cancel {
+        flex: 1;
+        padding: 10px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+        cursor: pointer;
+    }
+
+        .wa-btn-cancel:hover {
+            background: #e2e8f0;
+        }
+
+    .wa-btn-send {
+        flex: 2;
+        padding: 10px;
+        background: #16a34a;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        transition: background .15s;
+    }
+
+        .wa-btn-send:hover {
+            background: #15803d;
+        }
 </style>
 
 @code {
+    [Parameter] public Guid? DraftId { get; set; }
+
     private OutOfStockWarningDialog _oosDialog = default!;
     private ItemAddedToast _addedToast = default!;
 
+    // ── Draft state ───────────────────────────────────────────────────────
+    private bool isDraftMode = false;
+    private Guid currentDraftId = Guid.Empty;
+    private string currentDraftBillNo = "";
+
+    // ── UI ────────────────────────────────────────────────────────────────
     private bool showManual = false;
     private bool showDropdown = false;
     private bool nameError = false;
     private bool isSaving = false;
+    private bool savingAsDraft = false;
     private string errorMessage = "";
 
+    // ── WhatsApp dialog ───────────────────────────────────────────────────
+    private bool showWhatsAppDialog = false;
+    private bool waUseCustomerPhone = true;
+    private string waCustomPhone = "";
+
+    // ── Form ──────────────────────────────────────────────────────────────
     private string customerName = "";
     private string customerPhone = "";
     private string notes = "";
@@ -544,21 +797,61 @@
     private PaymentStatus paymentStatus = PaymentStatus.Unpaid;
     private PaymentMethod paymentMethod = PaymentMethod.Cash;
 
+    // ── Data ──────────────────────────────────────────────────────────────
     private List<BillItem> billItems = new();
     private List<ProductDto> searchResults = new();
     private List<ProductDto> allProducts = new();
     private BillItem? _lastAdded = null;
     private Dictionary<string, int> _stockLimits = new();
 
-    private string StockKey(Guid productId, Guid? variantId)
-        => $"{productId}_{variantId}";
     private decimal SubTotal => billItems.Sum(i => i.UnitPrice * i.Quantity);
     private decimal GrandTotal => Math.Max(0, SubTotal - discountAmount);
 
-    protected override async Task OnInitializedAsync()
-        => allProducts = await ProductService.GetAllAsync();
+    private string StockKey(Guid productId, Guid? variantId) => $"{productId}_{variantId}";
 
-    // ── Search ───────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        allProducts = await ProductService.GetAllAsync();
+
+        // If opened with a DraftId, load that draft for editing
+        if (DraftId.HasValue && DraftId.Value != Guid.Empty)
+        {
+            var draft = await BillService.GetBillByIdAsync(DraftId.Value);
+            if (draft is not null)
+            {
+                isDraftMode = true;
+                currentDraftId = draft.Id;
+                currentDraftBillNo = draft.BillNo;
+                customerName = draft.CustomerName ?? "";
+                customerPhone = draft.CustomerPhone ?? "";
+                notes = draft.Notes ?? "";
+                discountAmount = draft.DiscountAmount;
+                paymentStatus = draft.PaymentStatus;
+                paymentMethod = draft.PaymentMethod;
+                billItems = draft.Items.ToList();
+
+                // Rebuild stock limits from current product data
+                foreach (var item in billItems)
+                {
+                    if (item.ProductId == Guid.Empty) continue;
+                    var prod = allProducts.FirstOrDefault(p => p.Id == item.ProductId);
+                    if (prod is null) continue;
+                    if (item.ProductVariantId.HasValue)
+                    {
+                        var variant = prod.Variants.FirstOrDefault(v => v.Id == item.ProductVariantId);
+                        if (variant is not null)
+                            _stockLimits[StockKey(item.ProductId, item.ProductVariantId)] = variant.Quantity;
+                    }
+                    else
+                    {
+                        _stockLimits[StockKey(item.ProductId, null)] = prod.Quantity;
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────
     private void SearchProducts(ChangeEventArgs e)
     {
         productSearch = e.Value?.ToString() ?? "";
@@ -573,8 +866,7 @@
     private void HideDropdown()
         => Task.Delay(150).ContinueWith(_ => { showDropdown = false; InvokeAsync(StateHasChanged); });
 
-    // ── Dropdown click handlers — plain void, no lambda Task mismatch ────
-    // These are called from @onmousedown which accepts void methods fine.
+    // ── Dropdown clicks ───────────────────────────────────────────────────
     private void HandleProductClick(ProductDto p)
     {
         if (p.Quantity <= 0) { _oosDialog.Show(p.Name); ClearSearch(); return; }
@@ -587,7 +879,7 @@
         AddFromVariant(p, v);
     }
 
-    // ── Add helpers ──────────────────────────────────────────────────────
+    // ── Add helpers ───────────────────────────────────────────────────────
     private void AddItem(ProductDto product)
     {
         _stockLimits[StockKey(product.Id, null)] = product.Quantity;
@@ -595,14 +887,7 @@
         if (existing != null) { existing.Quantity++; _lastAdded = existing; }
         else
         {
-            var item = new BillItem
-            {
-                ProductId = product.Id,
-                ProductName = product.Name,
-                UnitPrice = product.SalePrice,
-                CostPrice = product.CostPrice,
-                Quantity = 1
-            };
+            var item = new BillItem { ProductId = product.Id, ProductName = product.Name, UnitPrice = product.SalePrice, CostPrice = product.CostPrice, Quantity = 1 };
             billItems.Add(item); _lastAdded = item;
         }
         _addedToast.Show(product.Name);
@@ -616,16 +901,7 @@
         if (existing != null) { existing.Quantity++; _lastAdded = existing; }
         else
         {
-            var item = new BillItem
-            {
-                ProductId = product.Id,
-                ProductVariantId = variant.Id,
-                ProductName = product.Name,
-                VariantName = variant.Name,
-                UnitPrice = variant.SalePrice,
-                CostPrice = variant.CostPrice,
-                Quantity = 1
-            };
+            var item = new BillItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, VariantName = variant.Name, UnitPrice = variant.SalePrice, CostPrice = variant.CostPrice, Quantity = 1 };
             billItems.Add(item); _lastAdded = item;
         }
         _addedToast.Show($"{product.Name} – {variant.Name}");
@@ -636,19 +912,11 @@
     {
         if (string.IsNullOrWhiteSpace(manualName)) { nameError = true; return; }
         if (manualPrice <= 0) return;
-
         var existing = billItems.FirstOrDefault(i => i.ProductId == Guid.Empty && i.ProductName == manualName.Trim());
         if (existing != null) { existing.Quantity++; _lastAdded = existing; }
         else
         {
-            var item = new BillItem
-            {
-                ProductId = Guid.Empty,
-                ProductName = manualName.Trim(),
-                UnitPrice = manualPrice,
-                CostPrice = 0,
-                Quantity = 1
-            };
+            var item = new BillItem { ProductId = Guid.Empty, ProductName = manualName.Trim(), UnitPrice = manualPrice, CostPrice = 0, Quantity = 1 };
             billItems.Add(item); _lastAdded = item;
         }
         _addedToast.Show(manualName.Trim());
@@ -669,11 +937,9 @@
     {
         if (item.ProductId == Guid.Empty)
         {
-            // Manual items have no stock limit
             item.Quantity = Math.Max(1, item.Quantity + delta);
             return;
         }
-
         var max = _stockLimits.TryGetValue(StockKey(item.ProductId, item.ProductVariantId), out var s) ? s : 1;
         item.Quantity = Math.Clamp(item.Quantity + delta, 1, max);
     }
@@ -681,32 +947,115 @@
     private void UpdatePrice(BillItem item, ChangeEventArgs e)
     { if (decimal.TryParse(e.Value?.ToString(), out var p)) item.UnitPrice = p; }
 
+    // ── Save Draft ────────────────────────────────────────────────────────
+    private async Task SaveDraft()
+    {
+        isSaving = true; savingAsDraft = true;
+        try
+        {
+            var bill = BuildBill();
+            bill.Id = currentDraftId; // Guid.Empty = new draft, existing = update
+            var saved = await BillService.SaveDraftAsync(bill);
+            currentDraftId = saved.Id;
+            currentDraftBillNo = saved.BillNo;
+            isDraftMode = true;
+            errorMessage = "";
+        }
+        catch (Exception ex) { errorMessage = $"Draft save failed: {ex.Message}"; }
+        finally { isSaving = false; savingAsDraft = false; }
+    }
+
+    // ── Save / Finalise Bill ──────────────────────────────────────────────
     private async Task SaveBill()
     {
         if (billItems.Count == 0) return;
-        isSaving = true;
+        isSaving = true; savingAsDraft = false;
         try
         {
-            var bill = new Bill
+            Bill saved;
+            if (isDraftMode && currentDraftId != Guid.Empty)
             {
-                CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName,
-                CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
-                Notes = string.IsNullOrWhiteSpace(notes) ? null : notes,
-                DiscountAmount = discountAmount,
-                PaymentStatus = paymentStatus,
-                PaymentMethod = paymentMethod,
-                Items = billItems
-            };
-            var saved = await BillService.CreateBillAsync(bill);
+                // Update draft items first, then promote
+                var bill = BuildBill();
+                bill.Id = currentDraftId;
+                await BillService.SaveDraftAsync(bill);
+                saved = await BillService.PromoteDraftToSavedAsync(currentDraftId);
+            }
+            else
+            {
+                saved = await BillService.CreateBillAsync(BuildBill());
+            }
             Navigation.NavigateTo($"/billing/{saved.Id}");
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error saving bill: {ex.Message}";
-            isSaving = false;
-        }
+        catch (Exception ex) { errorMessage = $"Error saving bill: {ex.Message}"; isSaving = false; }
     }
 
-    private void SaveDraft() { }
+    private Bill BuildBill() => new Bill
+    {
+        CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName,
+        CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
+        Notes = string.IsNullOrWhiteSpace(notes) ? null : notes,
+        DiscountAmount = discountAmount,
+        PaymentStatus = paymentStatus,
+        PaymentMethod = paymentMethod,
+        Items = billItems
+    };
+
+    // ── WhatsApp ──────────────────────────────────────────────────────────
+    public void OpenWhatsAppDialog()
+    {
+        waUseCustomerPhone = !string.IsNullOrWhiteSpace(customerPhone);
+        waCustomPhone = "";
+        showWhatsAppDialog = true;
+    }
+
+    private void CloseWhatsApp() => showWhatsAppDialog = false;
+
+    private void SendWhatsApp()
+    {
+        var phone = waUseCustomerPhone ? customerPhone : waCustomPhone;
+        if (string.IsNullOrWhiteSpace(phone)) return;
+
+        // Normalise: strip spaces, dashes, brackets; ensure no leading +
+        phone = phone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "");
+        if (phone.StartsWith("+")) phone = phone[1..];
+        if (phone.StartsWith("0")) phone = "92" + phone[1..]; // Pakistan local → international
+
+        var text = BuildReceiptText();
+        var encoded = Uri.EscapeDataString(text);
+        var url = $"https://wa.me/{phone}?text={encoded}";
+
+        // Open WhatsApp — works on MAUI via browser launch
+        Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Uri(url));
+        CloseWhatsApp();
+    }
+
+    private string BuildReceiptText()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("🧾 *SHEER RABBANI AUTOS*");
+        sb.AppendLine("Receipt / Invoice");
+        sb.AppendLine("----------------------------");
+        if (!string.IsNullOrWhiteSpace(customerName))
+            sb.AppendLine($"Customer : {customerName}");
+        sb.AppendLine($"Date     : {DateTime.Now:dd MMM yyyy, hh:mm tt}");
+        sb.AppendLine("----------------------------");
+        foreach (var item in billItems)
+        {
+            var name = string.IsNullOrEmpty(item.VariantName) ? item.ProductName : $"{item.ProductName} ({item.VariantName})";
+            sb.AppendLine($"• {name}  x{item.Quantity}  Rs.{(item.UnitPrice * item.Quantity):N0}");
+        }
+        sb.AppendLine("----------------------------");
+        sb.AppendLine($"Subtotal : Rs. {SubTotal:N0}");
+        if (discountAmount > 0)
+            sb.AppendLine($"Discount : Rs. {discountAmount:N0}");
+        sb.AppendLine($"*Total   : Rs. {GrandTotal:N0}*");
+        sb.AppendLine("----------------------------");
+        sb.AppendLine($"Payment  : {paymentMethod}");
+        sb.AppendLine($"Status   : {paymentStatus}");
+        sb.AppendLine("Thank you for your business! 🙏");
+        return sb.ToString();
+    }
+
     private void GoBack() => Navigation.NavigateTo("/billing");
 }

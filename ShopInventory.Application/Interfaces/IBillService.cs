@@ -18,5 +18,11 @@ namespace ShopInventory.Application.Interfaces
         Task<Bill?> GetBillByIdAsync(Guid id);
         Task DeleteBillAsync(Guid id);
         Task UpdatePaymentStatusAsync(Guid id, PaymentStatus status);
+
+
+        // ── Draft bills ──────────────────────────────────────────────────
+        Task<Bill> SaveDraftAsync(Bill bill);          // create or update a draft
+        Task<List<Bill>> GetAllDraftsAsync();          // all bills with Status=Draft
+        Task<Bill> PromoteDraftToSavedAsync(Guid id); // finalise a draft → deduct stock
     }
 }
