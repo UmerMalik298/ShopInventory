@@ -1,0 +1,115 @@
+@* Components/Common/OutOfStockWarningDialog.razor *@
+@* Usage anywhere: <OutOfStockWarningDialog @ref="stockWarningDialog" /> *@
+@* To trigger:     stockWarningDialog.Show("Product Name");              *@
+
+@if (_visible)
+{
+    <div class="oos-overlay" @onclick="Close">
+        <div class="oos-box" @onclick:stopPropagation="true">
+
+            <div class="oos-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9"  x2="12"   y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            </div>
+
+            <h4 class="oos-title">Out of Stock</h4>
+            <p class="oos-msg">
+                <strong>@_name</strong> is currently out of stock
+                and cannot be added to the bill.
+            </p>
+
+            <button class="oos-btn" @onclick="Close">Got it</button>
+        </div>
+    </div>
+}
+
+<style>
+    .oos-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        animation: oosIn .15s ease;
+    }
+
+    @@keyframes oosIn {
+        from { opacity: 0 }
+        to   { opacity: 1 }
+    }
+
+    .oos-box {
+        background: #fff;
+        border-radius: 18px;
+        padding: 32px 28px 26px;
+        max-width: 360px;
+        width: calc(100% - 40px);
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,.22);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        animation: oosBoxIn .22s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @@keyframes oosBoxIn {
+        from { transform: scale(.88) translateY(10px); opacity: 0 }
+        to   { transform: scale(1)   translateY(0);    opacity: 1 }
+    }
+
+    .oos-icon {
+        width: 58px; height: 58px;
+        border-radius: 50%;
+        background: #fef3c7;
+        color: #d97706;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    .oos-title {
+        font-size: 18px; font-weight: 700;
+        color: #111; margin: 0;
+    }
+
+    .oos-msg {
+        font-size: 14px; color: #6b7280;
+        line-height: 1.55; margin: 0;
+    }
+
+    .oos-btn {
+        margin-top: 4px;
+        padding: 10px 32px;
+        border-radius: 10px; border: none;
+        background: #f59e0b; color: #fff;
+        font-size: 14px; font-weight: 600;
+        cursor: pointer;
+        transition: background .15s, transform .1s;
+    }
+    .oos-btn:hover  { background: #d97706; }
+    .oos-btn:active { transform: scale(.97); }
+</style>
+
+@code {
+    private bool   _visible = false;
+    private string _name    = "";
+
+    public void Show(string productName)
+    {
+        _name    = productName;
+        _visible = true;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        _visible = false;
+        StateHasChanged();
+    }
+}

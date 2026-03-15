@@ -1,0 +1,101 @@
+﻿@* Components/Common/ItemAddedToast.razor *@
+@* Usage anywhere: <ItemAddedToast @ref="addedToast" />  *@
+@* To trigger:     addedToast.Show("Product Name");      *@
+
+@if (_visible)
+{
+    <div class="iat-toast @(_exiting ? "iat-out" : "iat-in")">
+        <div class="iat-check">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.8"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+        </div>
+        <div class="iat-body">
+            <span class="iat-label">Added to bill</span>
+            <span class="iat-name">@_name</span>
+        </div>
+    </div>
+}
+
+<style>
+    .iat-toast {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #111827;
+        color: #fff;
+        padding: 10px 18px 10px 12px;
+        border-radius: 40px;
+        box-shadow: 0 8px 32px rgba(0,0,0,.22);
+        z-index: 99998;
+        pointer-events: none;
+        min-width: 200px;
+    }
+
+    .iat-in  { animation: iatIn  .28s cubic-bezier(.34,1.56,.64,1) forwards; }
+    .iat-out { animation: iatOut .28s ease forwards; }
+
+    @@keyframes iatIn {
+        from { opacity:0; transform: translateX(-50%) translateY(12px); }
+        to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+    @@keyframes iatOut {
+        from { opacity:1; transform: translateX(-50%) translateY(0); }
+        to   { opacity:0; transform: translateX(-50%) translateY(8px); }
+    }
+
+    .iat-check {
+        width: 26px; height: 26px;
+        background: #22c55e; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; color: #fff;
+    }
+
+    .iat-body { display: flex; flex-direction: column; gap: 1px; }
+
+    .iat-label {
+        font-size: 11px; opacity: .6; letter-spacing: .03em;
+    }
+
+    .iat-name {
+        font-size: 14px; font-weight: 600;
+        max-width: 240px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+</style>
+
+@code {
+    private bool   _visible = false;
+    private bool   _exiting = false;
+    private string _name    = "";
+    private CancellationTokenSource? _cts;
+
+    public async void Show(string productName)
+    {
+        // Cancel any running timer so rapid adds don't stack
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+
+        _name    = productName;
+        _exiting = false;
+        _visible = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(2000, _cts.Token);
+            _exiting = true;
+            StateHasChanged();
+            await Task.Delay(300, _cts.Token);
+            _visible = false;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { /* new Show() call cancelled us — that's fine */ }
+    }
+}

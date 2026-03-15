@@ -16,8 +16,8 @@
         <button class="btn-back" @onclick="GoBack">&#8592; Back</button>
         <h2>New Bill</h2>
         <div class="top-actions">
-            <button class="btn-outline" @onclick="SaveDraft" @disabled="isSaving">Save Draft</button>
-            <button class="btn-primary" @onclick="SaveBill" @disabled="(billItems.Count == 0 || isSaving)">
+            <button class="btn-outline" @onclick="SaveDraft" disabled="@isSaving">Save Draft</button>
+            <button class="btn-primary" @onclick="SaveBill" disabled="@(billItems.Count == 0 || isSaving)">
                 @(isSaving ? "Saving..." : "Save Bill")
             </button>
         </div>
@@ -47,12 +47,29 @@
                 </div>
             </div>
 
-            <!-- Add Items -->
+            <!-- Add Products -->
             <div class="section-card">
-                <div class="section-title">Add Products</div>
+
+                <!-- Section header with Manual Item toggle -->
+                <div class="add-products-header">
+                    <div class="section-title" style="margin-bottom:0">Add Products</div>
+                    <button class="btn-manual-toggle @(showManual ? "active" : "")"
+                            @onclick="@(() => showManual = !showManual)">
+                        @if (showManual)
+                        {
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            <span>Cancel</span>
+                        }
+                        else
+                        {
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                            <span>Manual Item</span>
+                        }
+                    </button>
+                </div>
 
                 <!-- Product Search -->
-                <div class="search-area">
+                <div class="search-area" style="margin-top:14px">
                     <div class="search-wrap">
                         <input type="text"
                                placeholder="Search product by name or SKU..."
@@ -72,11 +89,19 @@
                                         {
                                             var p = product;
                                             var v = variant;
-                                            <div class="dropdown-item" @onmousedown="@(() => AddItemFromVariant(p, v))">
-                                                <div class="item-name">@product.Name <span class="variant-tag">@variant.Name</span></div>
+                                            bool oos = v.Quantity <= 0;
+                                            <div class="dropdown-item @(oos ? "item-oos" : "")"
+                                                 @onmousedown="@(() => HandleVariantClick(p, v))">
+                                                <div class="item-name">
+                                                    @p.Name <span class="variant-tag">@v.Name</span>
+                                                    @if (oos)
+                                                    {
+                                                        <span class="oos-badge">Out of Stock</span>
+                                                    }
+                                                </div>
                                                 <div class="item-meta">
-                                                    <span>Rs. @variant.SalePrice.ToString("N0")</span>
-                                                    <span class="stock @(variant.Quantity < 5 ? "low" : "")">Stock: @variant.Quantity</span>
+                                                    <span>Rs. @v.SalePrice.ToString("N0")</span>
+                                                    <span class="stock @(oos ? "oos" : v.Quantity < 5 ? "low" : "")">Stock: @v.Quantity</span>
                                                 </div>
                                             </div>
                                         }
@@ -84,11 +109,19 @@
                                     else
                                     {
                                         var p = product;
-                                        <div class="dropdown-item" @onmousedown="@(() => AddItem(p))">
-                                            <div class="item-name">@product.Name <span class="sku-tag">@product.Sku</span></div>
+                                        bool oos = p.Quantity <= 0;
+                                        <div class="dropdown-item @(oos ? "item-oos" : "")"
+                                             @onmousedown="@(() => HandleProductClick(p))">
+                                            <div class="item-name">
+                                                @p.Name <span class="sku-tag">@p.Sku</span>
+                                                @if (oos)
+                                                {
+                                                    <span class="oos-badge">Out of Stock</span>
+                                                }
+                                            </div>
                                             <div class="item-meta">
-                                                <span>Rs. @product.SalePrice.ToString("N0")</span>
-                                                <span class="stock @(product.Quantity < 5 ? "low" : "")">Stock: @product.Quantity</span>
+                                                <span>Rs. @p.SalePrice.ToString("N0")</span>
+                                                <span class="stock @(oos ? "oos" : p.Quantity < 5 ? "low" : "")">Stock: @p.Quantity</span>
                                             </div>
                                         </div>
                                     }
@@ -98,23 +131,25 @@
                     </div>
                 </div>
 
-                <!-- Manual Item Entry -->
-                <!-- Manual Item Entry -->
-                <div class="manual-entry-bar">
-                    <input type="text"
-                           class="manual-input @(nameError ? "input-error" : "")"
-                           placeholder="Custom item name..."
-                           value="@manualItemName"
-                           @oninput="@((e) => { manualItemName = e.Value?.ToString() ?? ""; nameError = false; })" />
-                    <input type="number"
-                           class="manual-price-input"
-                           placeholder="Price"
-                           @bind="manualItemPrice" />
-                    <button class="btn-add-manual"
-                            @onclick="AddManualItem">
-                        + Add
-                    </button>
-                </div>
+                <!-- Manual Item panel — only when toggled -->
+                @if (showManual)
+                {
+                    <div class="manual-panel">
+                        <span class="manual-panel-label">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                            Custom / unlisted item
+                        </span>
+                        <div class="manual-entry-bar">
+                            <input type="text"
+                                   class="@(nameError ? "input-error" : "")"
+                                   placeholder="Custom item name..."
+                                   value="@manualName"
+                                   @oninput="@((e) => { manualName = e.Value?.ToString() ?? ""; nameError = false; })" />
+                            <input type="number" placeholder="Price" @bind="manualPrice" />
+                            <button @onclick="AddManualItem">+ Add</button>
+                        </div>
+                    </div>
+                }
 
                 <!-- Items Table -->
                 @if (billItems.Count == 0)
@@ -138,7 +173,7 @@
                         <tbody>
                             @foreach (var item in billItems)
                             {
-                                <tr>
+                                <tr class="@(item == _lastAdded ? "row-flash" : "")">
                                     <td>
                                         <div class="product-cell">
                                             <span class="prod-name">@item.ProductName</span>
@@ -146,13 +181,26 @@
                                             {
                                                 <span class="variant-chip">@item.VariantName</span>
                                             }
+                                            @if (item.ProductId == Guid.Empty)
+                                            {
+                                                <span class="manual-chip">manual</span>
+                                            }
                                         </div>
                                     </td>
                                     <td>
                                         <div class="qty-ctrl">
+                                            @{
+                                                var atMax = item.ProductId != Guid.Empty &&
+                                                _stockLimits.TryGetValue(StockKey(item.ProductId, item.ProductVariantId), out var maxQty) &&
+                                                item.Quantity >= maxQty;
+                                            }
                                             <button @onclick="@(() => ChangeQty(item, -1))">−</button>
                                             <span>@item.Quantity</span>
-                                            <button @onclick="@(() => ChangeQty(item, 1))">+</button>
+                                            <button @onclick="@(() => ChangeQty(item, 1))"
+                                                    disabled="@atMax"
+                                                    style="@(atMax ? "opacity:0.4;cursor:not-allowed;" : "")">
+                                                +
+                                            </button>
                                         </div>
                                     </td>
                                     <td>
@@ -162,7 +210,7 @@
                                     </td>
                                     <td class="total-cell">Rs. @((item.UnitPrice * item.Quantity).ToString("N0"))</td>
                                     <td>
-                                        <button class="btn-remove" @onclick="@(() => RemoveItem(item))">✕</button>
+                                        <button class="btn-remove" @onclick="@(() => billItems.Remove(item))">✕</button>
                                     </td>
                                 </tr>
                             }
@@ -172,10 +220,11 @@
             </div>
         </div>
 
-        <!-- RIGHT: Summary -->
+        <!-- RIGHT: Bill Summary -->
         <div class="right-col">
             <div class="section-card summary-card">
                 <div class="section-title">Bill Summary</div>
+
                 <div class="bill-no-display">
                     <span class="label">Bill No.</span>
                     <span class="value mono">Auto-generated on save</span>
@@ -187,6 +236,28 @@
 
                 <div class="divider"></div>
 
+                <!-- Live item list in summary -->
+                @if (billItems.Count > 0)
+                {
+                    <div class="summary-items">
+                        @foreach (var item in billItems)
+                        {
+                            <div class="summary-item @(item == _lastAdded ? "summary-item-flash" : "")">
+                                <div class="si-name">
+                                    @item.ProductName
+                                    @if (!string.IsNullOrEmpty(item.VariantName))
+                                    {
+                                        <span class="si-variant">@item.VariantName</span>
+                                    }
+                                    <span class="si-qty">×@item.Quantity</span>
+                                </div>
+                                <span class="si-price">Rs. @((item.UnitPrice * item.Quantity).ToString("N0"))</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="divider"></div>
+                }
+
                 <div class="summary-row">
                     <span>Subtotal</span>
                     <span>Rs. @SubTotal.ToString("N0")</span>
@@ -196,7 +267,7 @@
                     <div class="discount-input-wrap">
                         <input type="number" min="0" class="discount-input"
                                value="@discountAmount"
-                               @oninput="@((e) => { if(decimal.TryParse(e.Value?.ToString(), out var d)) discountAmount = d; })" />
+                               @oninput="@((e) => { if (decimal.TryParse(e.Value?.ToString(), out var d)) discountAmount = d; })" />
                         <span>Rs.</span>
                     </div>
                 </div>
@@ -228,100 +299,324 @@
                 <div class="divider"></div>
 
                 <button class="btn-save-full" @onclick="SaveBill"
-                        @disabled="(billItems.Count == 0 || isSaving)">
+                        disabled="@(billItems.Count == 0 || isSaving)">
                     @(isSaving ? "Saving..." : "Save Bill")
                 </button>
             </div>
         </div>
+
     </div>
 </div>
+
+<OutOfStockWarningDialog @ref="_oosDialog" />
+<ItemAddedToast @ref="_addedToast" />
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="toast toast-error">@errorMessage</div>
 }
 
+<style>
+    .add-products-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0;
+    }
+
+    .btn-manual-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        font-size: 12.5px;
+        font-weight: 500;
+        border-radius: 8px;
+        border: 1.5px dashed #c7d2fe;
+        background: transparent;
+        color: #6366f1;
+        cursor: pointer;
+        transition: all .16s ease;
+    }
+
+        .btn-manual-toggle:hover {
+            background: #eef2ff;
+            border-color: #6366f1;
+        }
+
+        .btn-manual-toggle.active {
+            border-style: solid;
+            border-color: #ef4444;
+            color: #ef4444;
+            background: #fff5f5;
+        }
+
+    .manual-panel {
+        margin-top: 12px;
+        padding: 12px 14px 14px;
+        background: #fafbff;
+        border: 1.5px dashed #c7d2fe;
+        border-radius: 10px;
+        animation: mpSlide .18s ease;
+    }
+
+    @@keyframes mpSlide {
+        from {
+            opacity: 0;
+            transform: translateY(-6px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .manual-panel-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #6366f1;
+        margin-bottom: 10px;
+    }
+
+    .manual-entry-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+        .manual-entry-bar input[type="text"] {
+            flex: 1;
+        }
+
+        .manual-entry-bar input[type="number"] {
+            width: 100px;
+        }
+
+        .manual-entry-bar button {
+            padding: 8px 16px;
+            background: #0f172a;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+            .manual-entry-bar button:hover {
+                background: #1e293b;
+            }
+
+    .item-oos {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+    .oos-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: #fee2e2;
+        color: #dc2626;
+        margin-left: 6px;
+    }
+
+    .stock.oos {
+        color: #dc2626;
+        font-weight: 600;
+    }
+
+    .stock.low {
+        color: #f59e0b;
+        font-weight: 600;
+    }
+
+    .row-flash {
+        animation: rowFlash 2s ease forwards;
+    }
+
+    @@keyframes rowFlash {
+        0%, 60% {
+            background: #ecfdf5;
+        }
+
+        100% {
+            background: transparent;
+        }
+    }
+
+    .manual-chip {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: #ede9fe;
+        color: #7c3aed;
+        margin-left: 5px;
+        vertical-align: middle;
+    }
+
+    .summary-items {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-bottom: 12px;
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 13px;
+        color: #374151;
+        padding: 3px 6px;
+        border-radius: 6px;
+    }
+
+    .summary-item-flash {
+        animation: siFlash 2.2s ease forwards;
+    }
+
+    @@keyframes siFlash {
+        0%, 65% {
+            background: #d1fae5;
+        }
+
+        100% {
+            background: transparent;
+        }
+    }
+
+    .si-name {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        max-width: 60%;
+    }
+
+    .si-variant {
+        font-size: 11px;
+        color: #6b7280;
+        background: #f3f4f6;
+        border-radius: 4px;
+        padding: 1px 5px;
+    }
+
+    .si-qty {
+        font-size: 11.5px;
+        color: #9ca3af;
+    }
+
+    .si-price {
+        font-weight: 500;
+        color: #111827;
+        white-space: nowrap;
+    }
+</style>
+
 @code {
-    private string manualItemName = "";
-    private decimal manualItemPrice = 0;
+    private OutOfStockWarningDialog _oosDialog = default!;
+    private ItemAddedToast _addedToast = default!;
+
+    private bool showManual = false;
+    private bool showDropdown = false;
+    private bool nameError = false;
+    private bool isSaving = false;
+    private string errorMessage = "";
+
     private string customerName = "";
     private string customerPhone = "";
     private string notes = "";
     private string productSearch = "";
+    private string manualName = "";
+    private decimal manualPrice = 0;
     private decimal discountAmount = 0;
     private PaymentStatus paymentStatus = PaymentStatus.Unpaid;
     private PaymentMethod paymentMethod = PaymentMethod.Cash;
-    private bool isSaving = false;
-    private bool showDropdown = false;
-    private string errorMessage = "";
-    private bool nameError = false;
 
     private List<BillItem> billItems = new();
     private List<ProductDto> searchResults = new();
     private List<ProductDto> allProducts = new();
+    private BillItem? _lastAdded = null;
+    private Dictionary<string, int> _stockLimits = new();
 
+    private string StockKey(Guid productId, Guid? variantId)
+        => $"{productId}_{variantId}";
     private decimal SubTotal => billItems.Sum(i => i.UnitPrice * i.Quantity);
     private decimal GrandTotal => Math.Max(0, SubTotal - discountAmount);
 
     protected override async Task OnInitializedAsync()
-    {
-        allProducts = await ProductService.GetAllAsync();
-    }
+        => allProducts = await ProductService.GetAllAsync();
 
+    // ── Search ───────────────────────────────────────────────────────────
     private void SearchProducts(ChangeEventArgs e)
     {
         productSearch = e.Value?.ToString() ?? "";
-        if (string.IsNullOrWhiteSpace(productSearch))
-        {
-            searchResults.Clear();
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(productSearch)) { searchResults.Clear(); return; }
         searchResults = allProducts
             .Where(p => p.Name.Contains(productSearch, StringComparison.OrdinalIgnoreCase)
                      || p.Sku.Contains(productSearch, StringComparison.OrdinalIgnoreCase))
-            .Take(8)
-            .ToList();
+            .Take(8).ToList();
         showDropdown = true;
     }
 
     private void HideDropdown()
+        => Task.Delay(150).ContinueWith(_ => { showDropdown = false; InvokeAsync(StateHasChanged); });
+
+    // ── Dropdown click handlers — plain void, no lambda Task mismatch ────
+    // These are called from @onmousedown which accepts void methods fine.
+    private void HandleProductClick(ProductDto p)
     {
-        Task.Delay(150).ContinueWith(_ =>
-        {
-            showDropdown = false;
-            InvokeAsync(StateHasChanged);
-        });
+        if (p.Quantity <= 0) { _oosDialog.Show(p.Name); ClearSearch(); return; }
+        AddItem(p);
     }
 
+    private void HandleVariantClick(ProductDto p, ProductVariantDto v)
+    {
+        if (v.Quantity <= 0) { _oosDialog.Show($"{p.Name} – {v.Name}"); ClearSearch(); return; }
+        AddFromVariant(p, v);
+    }
+
+    // ── Add helpers ──────────────────────────────────────────────────────
     private void AddItem(ProductDto product)
     {
-        var existing = billItems.FirstOrDefault(i =>
-            i.ProductId == product.Id && i.ProductVariantId == null);
-
-        if (existing != null) { existing.Quantity++; }
+        _stockLimits[StockKey(product.Id, null)] = product.Quantity;
+        var existing = billItems.FirstOrDefault(i => i.ProductId == product.Id && i.ProductVariantId == null);
+        if (existing != null) { existing.Quantity++; _lastAdded = existing; }
         else
         {
-            billItems.Add(new BillItem
+            var item = new BillItem
             {
                 ProductId = product.Id,
                 ProductName = product.Name,
                 UnitPrice = product.SalePrice,
                 CostPrice = product.CostPrice,
                 Quantity = 1
-            });
+            };
+            billItems.Add(item); _lastAdded = item;
         }
-        ClearSearch();
+        _addedToast.Show(product.Name);
+        ClearSearch(); ResetFlash();
     }
 
-    private void AddItemFromVariant(ProductDto product, ProductVariantDto variant)
+    private void AddFromVariant(ProductDto product, ProductVariantDto variant)
     {
-        var existing = billItems.FirstOrDefault(i =>
-            i.ProductId == product.Id && i.ProductVariantId == variant.Id);
-
-        if (existing != null) { existing.Quantity++; }
+        _stockLimits[StockKey(product.Id, variant.Id)] = variant.Quantity;
+        var existing = billItems.FirstOrDefault(i => i.ProductId == product.Id && i.ProductVariantId == variant.Id);
+        if (existing != null) { existing.Quantity++; _lastAdded = existing; }
         else
         {
-            billItems.Add(new BillItem
+            var item = new BillItem
             {
                 ProductId = product.Id,
                 ProductVariantId = variant.Id,
@@ -330,30 +625,61 @@
                 UnitPrice = variant.SalePrice,
                 CostPrice = variant.CostPrice,
                 Quantity = 1
-            });
+            };
+            billItems.Add(item); _lastAdded = item;
         }
-        ClearSearch();
+        _addedToast.Show($"{product.Name} – {variant.Name}");
+        ClearSearch(); ResetFlash();
     }
 
-    private void ClearSearch()
+    private void AddManualItem()
     {
-        productSearch = "";
-        searchResults.Clear();
-        showDropdown = false;
+        if (string.IsNullOrWhiteSpace(manualName)) { nameError = true; return; }
+        if (manualPrice <= 0) return;
+
+        var existing = billItems.FirstOrDefault(i => i.ProductId == Guid.Empty && i.ProductName == manualName.Trim());
+        if (existing != null) { existing.Quantity++; _lastAdded = existing; }
+        else
+        {
+            var item = new BillItem
+            {
+                ProductId = Guid.Empty,
+                ProductName = manualName.Trim(),
+                UnitPrice = manualPrice,
+                CostPrice = 0,
+                Quantity = 1
+            };
+            billItems.Add(item); _lastAdded = item;
+        }
+        _addedToast.Show(manualName.Trim());
+        ResetFlash();
+        nameError = false; manualName = ""; manualPrice = 0;
+    }
+
+    private void ClearSearch() { productSearch = ""; searchResults.Clear(); showDropdown = false; }
+
+    private async void ResetFlash()
+    {
+        await Task.Delay(2300);
+        _lastAdded = null;
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ChangeQty(BillItem item, int delta)
     {
-        item.Quantity = Math.Max(1, item.Quantity + delta);
+        if (item.ProductId == Guid.Empty)
+        {
+            // Manual items have no stock limit
+            item.Quantity = Math.Max(1, item.Quantity + delta);
+            return;
+        }
+
+        var max = _stockLimits.TryGetValue(StockKey(item.ProductId, item.ProductVariantId), out var s) ? s : 1;
+        item.Quantity = Math.Clamp(item.Quantity + delta, 1, max);
     }
 
     private void UpdatePrice(BillItem item, ChangeEventArgs e)
-    {
-        if (decimal.TryParse(e.Value?.ToString(), out var price))
-            item.UnitPrice = price;
-    }
-
-    private void RemoveItem(BillItem item) => billItems.Remove(item);
+    { if (decimal.TryParse(e.Value?.ToString(), out var p)) item.UnitPrice = p; }
 
     private async Task SaveBill()
     {
@@ -371,7 +697,6 @@
                 PaymentMethod = paymentMethod,
                 Items = billItems
             };
-
             var saved = await BillService.CreateBillAsync(bill);
             Navigation.NavigateTo($"/billing/{saved.Id}");
         }
@@ -382,45 +707,6 @@
         }
     }
 
-    private void SaveDraft()
-    {
-        // Optional: implement draft save logic
-    }
-
+    private void SaveDraft() { }
     private void GoBack() => Navigation.NavigateTo("/billing");
-    private void AddManualItem()
-    {
-        if (string.IsNullOrWhiteSpace(manualItemName))
-        {
-            nameError = true;
-            return;
-        }
-        if (manualItemPrice <= 0) return;
-
-        var existing = billItems.FirstOrDefault(i =>
-            i.ProductName == manualItemName.Trim() &&
-            i.ProductId == Guid.Empty &&
-            i.ProductVariantId == null);
-
-        if (existing != null)
-        {
-            existing.Quantity++;
-        }
-        else
-        {
-            billItems.Add(new BillItem
-            {
-                ProductId = Guid.Empty,
-                ProductName = manualItemName.Trim(),
-                UnitPrice = manualItemPrice,
-                CostPrice = 0,
-                Quantity = 1
-            });
-        }
-
-        nameError = false;
-        manualItemName = "";
-        manualItemPrice = 0;
-    }
 }
-
