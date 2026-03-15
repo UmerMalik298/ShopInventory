@@ -1,2 +1,6 @@
 Add-Migration ProductVariants -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
 Update-Database -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
+
+
+
+dotnet publish "D:\Blazor\ShopInventory\ShopInventory.App\ShopInventory.App.csproj" -f net9.0-windows10.0.19041.0 -c Release --self-contained true
