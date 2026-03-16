@@ -475,7 +475,43 @@
     .btn-cancel:hover {
         background: #e2e8f0;
     }
+.cart-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: 'DM Sans', sans-serif;
+}
 
+    .cart-nav-btn:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+.cart-badge {
+    margin-left: auto;
+    background: #cc0000;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.dot-active {
+    background: #cc0000 !important;
+}
 .btn-confirm {
     flex: 1;
     padding: 10px;

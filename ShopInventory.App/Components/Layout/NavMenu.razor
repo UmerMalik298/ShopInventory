@@ -1,4 +1,7 @@
-﻿<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+﻿@inject ShopInventory.Infrastructure.Services.CartService CartService
+@implements IDisposable
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
 <div class="nav-shell">
 
@@ -33,8 +36,16 @@
             <span class="nav-dot"></span>
             <span class="nav-text">Billing</span>
         </NavLink>
-    </nav>
 
+    </nav>
+    <button class="nav-item cart-nav-btn" @onclick="GoToCart">
+        <span class="nav-dot @(CartService.TotalItems > 0 ? "dot-active" : "")"></span>
+        <span class="nav-text">Cart</span>
+        @if (CartService.TotalItems > 0)
+        {
+            <span class="cart-badge">@CartService.TotalItems</span>
+        }
+    </button>
     <div class="nav-footer">
 
         <!-- Sync Button -->
@@ -174,7 +185,27 @@
         // _syncState = "idle";
         // StateHasChanged();
     }
+    [Inject] NavigationManager Navigation { get; set; } = default!;
 
+    protected override void OnInitialized()
+    {
+        CartService.OnCartChanged += OnCartUpdated;
+    }
+
+    private void OnCartUpdated()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void GoToCart()
+    {
+        Navigation.NavigateTo("/billing/create");
+    }
+
+    public void Dispose()
+    {
+        CartService.OnCartChanged -= OnCartUpdated;
+    }
     private void ConfirmClose()
     {
         showCloseWarning = false;

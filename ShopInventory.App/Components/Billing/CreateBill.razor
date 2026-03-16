@@ -8,7 +8,7 @@
 @inject IBillService BillService
 @inject IProductService ProductService
 @inject NavigationManager Navigation
-
+@inject ShopInventory.Infrastructure.Services.CartService CartService
 <div class="create-bill-page">
 
     <!-- Top Bar -->
@@ -381,6 +381,35 @@
     protected override async Task OnInitializedAsync()
     {
         allProducts = await ProductService.GetAllAsync();
+
+        // Pre-fill items from cart if any
+        foreach (var item in CartService.Items)
+        {
+            var existing = billItems.FirstOrDefault(i =>
+                i.ProductId == item.ProductId &&
+                i.ProductVariantId == item.VariantId);
+
+            if (existing != null)
+            {
+                existing.Quantity += item.Quantity;
+            }
+            else
+            {
+                billItems.Add(new BillItem
+                {
+                    ProductId = item.ProductId,
+                    ProductVariantId = item.VariantId,
+                    ProductName = item.Name,
+                    VariantName = item.VariantName,
+                    UnitPrice = item.UnitPrice,
+                    CostPrice = item.CostPrice,
+                    Quantity = item.Quantity
+                });
+            }
+        }
+
+        CartService.Clear();
+        // No RecalculateTotals needed — SubTotal and GrandTotal are computed properties
     }
 
     private void ToggleManualEntry()
@@ -687,4 +716,5 @@
 
         await ShowItemAddedSuccess(itemLabel);
     }
+
 }
