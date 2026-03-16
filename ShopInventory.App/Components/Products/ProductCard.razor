@@ -47,6 +47,13 @@
                 <span class="label">Cost Price</span>
                 <strong>@(showCost? CostPrice : "••••")</strong>
             </div>
+            @if (!string.IsNullOrEmpty(OldPrice) && OldPrice != "0.00")
+            {
+                <div class="price-box old-box">
+                    <span class="label">Old Price</span>
+                    <strong>@(showCost? OldPrice : "••••")</strong>
+                </div>
+            }
         </div>
 
         <div class="meta">
@@ -356,6 +363,8 @@
     [Parameter] public string Category { get; set; } = "";
     [Parameter] public string Unit { get; set; } = "";
     [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public string? OldPrice { get; set; }
+
 
     private int _currentQuantity;
     private int _variantCount;

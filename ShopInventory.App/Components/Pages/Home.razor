@@ -29,10 +29,10 @@
                 <p class="dash-sub">@DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
             </div>
 
- <button class="dash-refresh @(_isRefreshing ? "refreshing" : "")" @onclick="LoadAsync">
-        <span class="refresh-icon">↻</span>
-        <span>@(_isRefreshing ? "Refreshing..." : "Refresh")</span>
-    </button>
+            <button class="dash-refresh @(_isRefreshing ? "refreshing" : "")" @onclick="LoadAsync">
+                <span class="refresh-icon">↻</span>
+                <span>@(_isRefreshing ? "Refreshing..." : "Refresh")</span>
+            </button>
         </div>
 
         <div class="kpi-grid">
@@ -160,7 +160,7 @@
                 else
                 {
                     <div class="stock-list">
-                        @foreach (var item in _dashboard.LowStockItems)
+                        @foreach (var item in VisibleLowStockItems)
                         {
                             <div class="stock-item @(item.Quantity == 0 ? "out" : "low")">
                                 <div class="stock-left">
@@ -180,6 +180,13 @@
                             </div>
                         }
                     </div>
+
+                    @if (CanShowMoreLowStock)
+                    {
+                        <button class="show-more-btn" @onclick="ToggleLowStock">
+                            @(_showAllLowStock ? "Show less" : $"Show more ({RemainingLowStockCount})")
+                        </button>
+                    }
                 }
             </div>
 
@@ -196,7 +203,7 @@
                 else
                 {
                     <div class="recent-list">
-                        @foreach (var sale in _dashboard.RecentSales)
+                        @foreach (var sale in VisibleRecentSales)
                         {
                             <div class="recent-item">
                                 <div class="recent-left">
@@ -225,6 +232,13 @@
                             </div>
                         }
                     </div>
+
+                    @if (CanShowMoreRecentSales)
+                    {
+                        <button class="show-more-btn" @onclick="ToggleRecentSales">
+                            @(_showAllRecentSales ? "Show less" : $"Show more ({RemainingRecentSalesCount})")
+                        </button>
+                    }
                 }
             </div>
         </div>
@@ -253,12 +267,48 @@
     private bool _loading = true;
     private bool _isRefreshing = false;
 
+    private const int LowStockPreviewCount = 5;
+    private const int RecentSalesPreviewCount = 5;
+
+    private bool _showAllLowStock = false;
+    private bool _showAllRecentSales = false;
+
+    private IEnumerable<LowStockItemVm> VisibleLowStockItems =>
+        _dashboard?.LowStockItems
+            .Take(_showAllLowStock ? _dashboard.LowStockItems.Count : LowStockPreviewCount)
+        ?? Enumerable.Empty<LowStockItemVm>();
+
+    private IEnumerable<RecentSaleVm> VisibleRecentSales =>
+        _dashboard?.RecentSales
+            .Take(_showAllRecentSales ? _dashboard.RecentSales.Count : RecentSalesPreviewCount)
+        ?? Enumerable.Empty<RecentSaleVm>();
+
+    private bool CanShowMoreLowStock =>
+        _dashboard is not null && _dashboard.LowStockItems.Count > LowStockPreviewCount;
+
+    private bool CanShowMoreRecentSales =>
+        _dashboard is not null && _dashboard.RecentSales.Count > RecentSalesPreviewCount;
+
+    private int RemainingLowStockCount =>
+        _dashboard is null ? 0 : Math.Max(0, _dashboard.LowStockItems.Count - LowStockPreviewCount);
+
+    private int RemainingRecentSalesCount =>
+        _dashboard is null ? 0 : Math.Max(0, _dashboard.RecentSales.Count - RecentSalesPreviewCount);
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
     }
 
+    private void ToggleLowStock()
+    {
+        _showAllLowStock = !_showAllLowStock;
+    }
 
+    private void ToggleRecentSales()
+    {
+        _showAllRecentSales = !_showAllRecentSales;
+    }
 
     private async Task LoadAsync()
     {
@@ -270,6 +320,7 @@
         {
             _isRefreshing = true;
         }
+
         await InvokeAsync(StateHasChanged);
         await Task.Delay(50);
 
@@ -280,15 +331,42 @@
         var totalProducts = await DbContext.Product.CountAsync();
         var totalVariants = await DbContext.ProductVariant.CountAsync();
 
-        var todaySales = await DbContext.Sale
-            .Where(x => x.SoldAt >= today && x.SoldAt < tomorrow)
+        var saleRows = await DbContext.Sale
+            .Select(x => new DashboardSaleRowVm
+            {
+                ProductName = x.ProductName,
+                VariantName = x.VariantName,
+                QuantitySold = x.QuantitySold,
+                Revenue = x.SalePriceAtTime * x.QuantitySold,
+                Profit = (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold,
+                SoldAt = x.SoldAt,
+                Notes = x.Notes
+            })
             .ToListAsync();
 
-        var allSales = await DbContext.Sale
+        var billRows = await DbContext.BillItem
+            .Select(x => new DashboardSaleRowVm
+            {
+                ProductName = x.ProductName,
+                VariantName = x.VariantName,
+                QuantitySold = x.Quantity,
+                Revenue = x.UnitPrice * x.Quantity,
+                Profit = (x.UnitPrice - x.CostPrice) * x.Quantity,
+                SoldAt = x.Bill.BilledAt,
+                Notes = x.Bill.Notes
+            })
+            .ToListAsync();
+
+        var allRows = saleRows
+            .Concat(billRows)
             .OrderByDescending(x => x.SoldAt)
-            .ToListAsync();
+            .ToList();
 
-        var last7Sales = allSales
+        var todayRows = allRows
+            .Where(x => x.SoldAt >= today && x.SoldAt < tomorrow)
+            .ToList();
+
+        var last7Rows = allRows
             .Where(x => x.SoldAt >= last7Start)
             .ToList();
 
@@ -321,7 +399,6 @@
             .Concat(variantAlerts)
             .OrderBy(x => x.Quantity)
             .ThenBy(x => x.Name)
-            .Take(10)
             .ToList();
 
         var last7Days = Enumerable.Range(0, 7)
@@ -329,19 +406,21 @@
             {
                 var day = last7Start.AddDays(i);
                 var nextDay = day.AddDays(1);
-                var daySales = last7Sales
+
+                var dayRows = last7Rows
                     .Where(x => x.SoldAt >= day && x.SoldAt < nextDay)
                     .ToList();
+
                 return new DaySalesVm
                 {
                     DayLabel = day.ToLocalTime().ToString("ddd"),
-                    Revenue = daySales.Sum(x => x.SalePriceAtTime * x.QuantitySold),
-                    UnitsSold = daySales.Sum(x => x.QuantitySold)
+                    Revenue = dayRows.Sum(x => x.Revenue),
+                    UnitsSold = dayRows.Sum(x => x.QuantitySold)
                 };
             })
             .ToList();
 
-        var topProducts = allSales
+        var topProducts = allRows
             .GroupBy(x => string.IsNullOrWhiteSpace(x.VariantName)
                 ? x.ProductName
                 : $"{x.ProductName} - {x.VariantName}")
@@ -349,22 +428,22 @@
             {
                 Name = g.Key,
                 UnitsSold = g.Sum(x => x.QuantitySold),
-                Revenue = g.Sum(x => x.SalePriceAtTime * x.QuantitySold)
+                Revenue = g.Sum(x => x.Revenue)
             })
             .OrderByDescending(x => x.UnitsSold)
             .ThenByDescending(x => x.Revenue)
             .Take(5)
             .ToList();
 
-        var recentSales = allSales
-            .Take(8)
+        var recentSales = allRows
+            .Take(50)
             .Select(x => new RecentSaleVm
             {
                 ProductName = x.ProductName,
                 VariantName = x.VariantName,
                 QuantitySold = x.QuantitySold,
-                Revenue = x.SalePriceAtTime * x.QuantitySold,
-                Profit = (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold,
+                Revenue = x.Revenue,
+                Profit = x.Profit,
                 SoldAt = x.SoldAt,
                 Notes = x.Notes
             })
@@ -374,13 +453,13 @@
         {
             TotalProducts = totalProducts,
             TotalVariants = totalVariants,
-            TodaySalesCount = todaySales.Sum(x => x.QuantitySold),
-            TodayRevenue = todaySales.Sum(x => x.SalePriceAtTime * x.QuantitySold),
-            TodayProfit = todaySales.Sum(x => (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold),
-            TotalRevenue = allSales.Sum(x => x.SalePriceAtTime * x.QuantitySold),
-            TotalProfit = allSales.Sum(x => (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold),
+            TodaySalesCount = todayRows.Sum(x => x.QuantitySold),
+            TodayRevenue = todayRows.Sum(x => x.Revenue),
+            TodayProfit = todayRows.Sum(x => x.Profit),
+            TotalRevenue = allRows.Sum(x => x.Revenue),
+            TotalProfit = allRows.Sum(x => x.Profit),
             OutOfStockCount = outOfStockProducts + outOfStockVariants,
-            LowStockCount = productAlerts.Count + variantAlerts.Count,
+            LowStockCount = lowStockItems.Count,
             Last7Days = last7Days,
             TopProducts = topProducts,
             LowStockItems = lowStockItems,
@@ -391,6 +470,7 @@
         _isRefreshing = false;
         await InvokeAsync(StateHasChanged);
     }
+
     private class DashboardVm
     {
         public int TotalProducts { get; set; }
@@ -406,6 +486,17 @@
         public List<TopProductVm> TopProducts { get; set; } = new();
         public List<LowStockItemVm> LowStockItems { get; set; } = new();
         public List<RecentSaleVm> RecentSales { get; set; } = new();
+    }
+
+    private class DashboardSaleRowVm
+    {
+        public string ProductName { get; set; } = "";
+        public string? VariantName { get; set; }
+        public int QuantitySold { get; set; }
+        public decimal Revenue { get; set; }
+        public decimal Profit { get; set; }
+        public DateTime SoldAt { get; set; }
+        public string? Notes { get; set; }
     }
 
     private class DaySalesVm

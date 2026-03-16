@@ -16,8 +16,8 @@
         <button class="btn-back" @onclick="GoBack">&#8592; Back</button>
         <h2>New Bill</h2>
         <div class="top-actions">
-            <button class="btn-outline" @onclick="SaveDraft" @disabled="isSaving">Save Draft</button>
-            <button class="btn-primary" @onclick="SaveBill" @disabled="(billItems.Count == 0 || isSaving)">
+            <button class="btn-outline" @onclick="SaveDraft" disabled="@isSaving">Save Draft</button>
+            <button class="btn-primary" @onclick="SaveBill" disabled="@(billItems.Count == 0 || isSaving)">
                 @(isSaving ? "Saving..." : "Save Bill")
             </button>
         </div>
@@ -49,9 +49,14 @@
 
             <!-- Add Items -->
             <div class="section-card">
-                <div class="section-title">Add Products</div>
+                <div class="section-title-row">
+                    <span class="section-title">Add Products</span>
+                    <button class="btn-toggle-manual" @onclick="ToggleManualEntry">
+                        @(showManualEntry ? "✕ Close Manual Entry" : "＋ Manual Item")
+                    </button>
+                </div>
 
-                <!-- Product Search -->
+                <!-- Product Search (always visible) -->
                 <div class="search-area">
                     <div class="search-wrap">
                         <input type="text"
@@ -72,11 +77,20 @@
                                         {
                                             var p = product;
                                             var v = variant;
-                                            <div class="dropdown-item" @onmousedown="@(() => AddItemFromVariant(p, v))">
-                                                <div class="item-name">@product.Name <span class="variant-tag">@variant.Name</span></div>
+                                            <div class="dropdown-item @(v.Quantity == 0 ? "out-of-stock-item" : "")"
+                                                 @onmousedown="@(() => TryAddItemFromVariant(p, v))">
+                                                <div class="item-name">
+                                                    @product.Name <span class="variant-tag">@variant.Name</span>
+                                                    @if (v.Quantity == 0)
+                                                    {
+                                                        <span class="oos-badge">Out of Stock</span>
+                                                    }
+                                                </div>
                                                 <div class="item-meta">
                                                     <span>Rs. @variant.SalePrice.ToString("N0")</span>
-                                                    <span class="stock @(variant.Quantity < 5 ? "low" : "")">Stock: @variant.Quantity</span>
+                                                    <span class="stock @(variant.Quantity == 0 ? "oos" : variant.Quantity < 5 ? "low" : "")">
+                                                        Stock: @variant.Quantity
+                                                    </span>
                                                 </div>
                                             </div>
                                         }
@@ -84,37 +98,61 @@
                                     else
                                     {
                                         var p = product;
-                                        <div class="dropdown-item" @onmousedown="@(() => AddItem(p))">
-                                            <div class="item-name">@product.Name <span class="sku-tag">@product.Sku</span></div>
+                                        <div class="dropdown-item @(p.Quantity == 0 ? "out-of-stock-item" : "")"
+                                             @onmousedown="@(() => TryAddItem(p))">
+                                            <div class="item-name">
+                                                @product.Name <span class="sku-tag">@product.Sku</span>
+                                                @if (p.Quantity == 0)
+                                                {
+                                                    <span class="oos-badge">Out of Stock</span>
+                                                }
+                                            </div>
                                             <div class="item-meta">
                                                 <span>Rs. @product.SalePrice.ToString("N0")</span>
-                                                <span class="stock @(product.Quantity < 5 ? "low" : "")">Stock: @product.Quantity</span>
+                                                <span class="stock @(product.Quantity == 0 ? "oos" : product.Quantity < 5 ? "low" : "")">
+                                                    Stock: @product.Quantity
+                                                </span>
                                             </div>
                                         </div>
                                     }
                                 }
                             </div>
                         }
+
+                        @if (showDropdown && !string.IsNullOrWhiteSpace(productSearch) && searchResults.Count == 0)
+                        {
+                            <div class="dropdown">
+                                <div class="dropdown-empty">No products found.</div>
+                            </div>
+                        }
                     </div>
                 </div>
 
-                <!-- Manual Item Entry -->
-                <!-- Manual Item Entry -->
-                <div class="manual-entry-bar">
-                    <input type="text"
-                           class="manual-input @(nameError ? "input-error" : "")"
-                           placeholder="Custom item name..."
-                           value="@manualItemName"
-                           @oninput="@((e) => { manualItemName = e.Value?.ToString() ?? ""; nameError = false; })" />
-                    <input type="number"
-                           class="manual-price-input"
-                           placeholder="Price"
-                           @bind="manualItemPrice" />
-                    <button class="btn-add-manual"
-                            @onclick="AddManualItem">
-                        + Add
-                    </button>
-                </div>
+                <!-- Manual Item Entry (collapsible) -->
+                @if (showManualEntry)
+                {
+                    <div class="manual-entry-panel">
+                        <div class="manual-entry-label">Manual / Custom Item</div>
+                        <div class="manual-entry-bar">
+                            <input type="text"
+                                   class="manual-input @(nameError ? "input-error" : "")"
+                                   placeholder="Custom item name..."
+                                   value="@manualItemName"
+                                   @oninput="@((e) => { manualItemName = e.Value?.ToString() ?? ""; nameError = false; })" />
+                            <input type="number"
+                                   class="manual-price-input"
+                                   placeholder="Price"
+                                   @bind="manualItemPrice" />
+                            <button class="btn-add-manual" @onclick="AddManualItem">
+                                + Add
+                            </button>
+                        </div>
+                        @if (nameError)
+                        {
+                            <div class="manual-error">Item name is required.</div>
+                        }
+                    </div>
+                }
 
                 <!-- Items Table -->
                 @if (billItems.Count == 0)
@@ -138,13 +176,17 @@
                         <tbody>
                             @foreach (var item in billItems)
                             {
-                                <tr>
+                                <tr class="@(item == lastAddedItem ? "row-highlight" : "")">
                                     <td>
                                         <div class="product-cell">
                                             <span class="prod-name">@item.ProductName</span>
                                             @if (!string.IsNullOrEmpty(item.VariantName))
                                             {
                                                 <span class="variant-chip">@item.VariantName</span>
+                                            }
+                                            @if (item.ProductId == Guid.Empty)
+                                            {
+                                                <span class="manual-chip">Manual</span>
                                             }
                                         </div>
                                     </td>
@@ -187,6 +229,34 @@
 
                 <div class="divider"></div>
 
+                <!-- Live item count -->
+                <div class="summary-row items-count-row">
+                    <span>Items</span>
+                    <span class="items-badge">@billItems.Count item@(billItems.Count == 1 ? "" : "s")</span>
+                </div>
+
+                @if (billItems.Count > 0)
+                {
+                    <div class="summary-items-list">
+                        @foreach (var item in billItems)
+                        {
+                            <div class="summary-item-row">
+                                <span class="si-name">
+                                    @item.ProductName
+                                    @if (!string.IsNullOrEmpty(item.VariantName))
+                                    {
+                                        <span class="si-variant"> (@item.VariantName)</span>
+                                    }
+                                </span>
+                                <span class="si-detail">@item.Quantity × Rs. @item.UnitPrice.ToString("N0")</span>
+                                <span class="si-total">Rs. @((item.UnitPrice * item.Quantity).ToString("N0"))</span>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div class="divider"></div>
+
                 <div class="summary-row">
                     <span>Subtotal</span>
                     <span>Rs. @SubTotal.ToString("N0")</span>
@@ -196,7 +266,7 @@
                     <div class="discount-input-wrap">
                         <input type="number" min="0" class="discount-input"
                                value="@discountAmount"
-                               @oninput="@((e) => { if(decimal.TryParse(e.Value?.ToString(), out var d)) discountAmount = d; })" />
+                               @oninput="@((e) => { if (decimal.TryParse(e.Value?.ToString(), out var d)) discountAmount = d; })" />
                         <span>Rs.</span>
                     </div>
                 </div>
@@ -228,7 +298,7 @@
                 <div class="divider"></div>
 
                 <button class="btn-save-full" @onclick="SaveBill"
-                        @disabled="(billItems.Count == 0 || isSaving)">
+                        disabled="@(billItems.Count == 0 || isSaving)">
                     @(isSaving ? "Saving..." : "Save Bill")
                 </button>
             </div>
@@ -239,6 +309,40 @@
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="toast toast-error">@errorMessage</div>
+}
+
+<!-- ===================== OUT OF STOCK WARNING DIALOG ===================== -->
+@if (showOutOfStockDialog)
+{
+    <div class="dialog-overlay" @onclick="CloseOutOfStockDialog">
+        <div class="dialog-box dialog-warning" @onclick:stopPropagation="true">
+            <div class="dialog-icon">⚠️</div>
+            <div class="dialog-title">Out of Stock</div>
+            <div class="dialog-message">
+                <strong>@outOfStockProductName</strong> is currently out of stock and cannot be added to this bill.
+            </div>
+            <div class="dialog-actions">
+                <button class="btn-dialog-primary" @onclick="CloseOutOfStockDialog">OK, Got it</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===================== ITEM ADDED SUCCESS DIALOG ===================== -->
+@if (showItemAddedDialog)
+{
+    <div class="dialog-overlay" @onclick="CloseItemAddedDialog">
+        <div class="dialog-box dialog-success" @onclick:stopPropagation="true">
+            <div class="dialog-icon">✅</div>
+            <div class="dialog-title">Item Added</div>
+            <div class="dialog-message">
+                <strong>@addedItemName</strong> has been added to the bill.
+            </div>
+            <div class="dialog-actions">
+                <button class="btn-dialog-primary" @onclick="CloseItemAddedDialog">Continue</button>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -255,6 +359,17 @@
     private bool showDropdown = false;
     private string errorMessage = "";
     private bool nameError = false;
+    private bool showManualEntry = false;
+
+    // Dialog states
+    private bool showOutOfStockDialog = false;
+    private string outOfStockProductName = "";
+
+    private bool showItemAddedDialog = false;
+    private string addedItemName = "";
+
+    // For row highlight animation
+    private BillItem? lastAddedItem = null;
 
     private List<BillItem> billItems = new();
     private List<ProductDto> searchResults = new();
@@ -266,6 +381,11 @@
     protected override async Task OnInitializedAsync()
     {
         allProducts = await ProductService.GetAllAsync();
+    }
+
+    private void ToggleManualEntry()
+    {
+        showManualEntry = !showManualEntry;
     }
 
     private void SearchProducts(ChangeEventArgs e)
@@ -293,22 +413,114 @@
         });
     }
 
+    // --- Out of Stock Dialog ---
+    private void ShowOutOfStockWarning(string productName)
+    {
+        outOfStockProductName = productName;
+        showOutOfStockDialog = true;
+        ClearSearch();
+    }
+
+    private void CloseOutOfStockDialog()
+    {
+        showOutOfStockDialog = false;
+        outOfStockProductName = "";
+    }
+
+    // --- Item Added Dialog ---
+    private async Task ShowItemAddedSuccess(string itemName)
+    {
+        addedItemName = itemName;
+        showItemAddedDialog = true;
+        StateHasChanged();
+        // Auto-close after 2 seconds
+        await Task.Delay(2000);
+        if (showItemAddedDialog)
+        {
+            showItemAddedDialog = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void CloseItemAddedDialog()
+    {
+        showItemAddedDialog = false;
+        addedItemName = "";
+    }
+
+    // --- Add from search with out-of-stock check ---
+    private async Task TryAddItem(ProductDto product)
+    {
+        errorMessage = "";
+
+        var existingQty = billItems
+            .Where(i => i.ProductId == product.Id && !i.ProductVariantId.HasValue)
+            .Sum(i => i.Quantity);
+
+        if (product.Quantity <= 0)
+        {
+            ShowOutOfStockWarning(product.Name);
+            return;
+        }
+
+        if (existingQty >= product.Quantity)
+        {
+            errorMessage = $"Only {product.Quantity} item(s) available for {product.Name}.";
+            ClearSearch();
+            return;
+        }
+
+        AddItem(product);
+        await ShowItemAddedSuccess(product.Name);
+    }
+
+    private async Task TryAddItemFromVariant(ProductDto product, ProductVariantDto variant)
+    {
+        errorMessage = "";
+
+        var existingQty = billItems
+            .Where(i => i.ProductId == product.Id && i.ProductVariantId == variant.Id)
+            .Sum(i => i.Quantity);
+
+        if (variant.Quantity <= 0)
+        {
+            ShowOutOfStockWarning($"{product.Name} ({variant.Name})");
+            return;
+        }
+
+        if (existingQty >= variant.Quantity)
+        {
+            errorMessage = $"Only {variant.Quantity} item(s) available for {product.Name} ({variant.Name}).";
+            ClearSearch();
+            return;
+        }
+
+        AddItemFromVariant(product, variant);
+        await ShowItemAddedSuccess($"{product.Name} ({variant.Name})");
+    }
+
     private void AddItem(ProductDto product)
     {
         var existing = billItems.FirstOrDefault(i =>
             i.ProductId == product.Id && i.ProductVariantId == null);
 
-        if (existing != null) { existing.Quantity++; }
+        if (existing != null)
+        {
+            existing.Quantity++;
+            lastAddedItem = existing;
+        }
         else
         {
-            billItems.Add(new BillItem
+            var newItem = new BillItem
             {
                 ProductId = product.Id,
                 ProductName = product.Name,
                 UnitPrice = product.SalePrice,
                 CostPrice = product.CostPrice,
                 Quantity = 1
-            });
+            };
+            billItems.Add(newItem);
+            lastAddedItem = newItem;
         }
         ClearSearch();
     }
@@ -318,10 +530,14 @@
         var existing = billItems.FirstOrDefault(i =>
             i.ProductId == product.Id && i.ProductVariantId == variant.Id);
 
-        if (existing != null) { existing.Quantity++; }
+        if (existing != null)
+        {
+            existing.Quantity++;
+            lastAddedItem = existing;
+        }
         else
         {
-            billItems.Add(new BillItem
+            var newItem = new BillItem
             {
                 ProductId = product.Id,
                 ProductVariantId = variant.Id,
@@ -330,7 +546,9 @@
                 UnitPrice = variant.SalePrice,
                 CostPrice = variant.CostPrice,
                 Quantity = 1
-            });
+            };
+            billItems.Add(newItem);
+            lastAddedItem = newItem;
         }
         ClearSearch();
     }
@@ -344,7 +562,46 @@
 
     private void ChangeQty(BillItem item, int delta)
     {
-        item.Quantity = Math.Max(1, item.Quantity + delta);
+        errorMessage = "";
+
+        var newQty = item.Quantity + delta;
+
+        if (newQty < 1)
+        {
+            item.Quantity = 1;
+            return;
+        }
+
+        // Manual items have no stock control
+        if (item.ProductId == Guid.Empty)
+        {
+            item.Quantity = newQty;
+            return;
+        }
+
+        int availableStock = GetAvailableStock(item);
+
+        if (delta > 0 && newQty > availableStock)
+        {
+            errorMessage = $"Only {availableStock} item(s) available for {item.ProductName}.";
+            return;
+        }
+
+        item.Quantity = newQty;
+    }
+    private int GetAvailableStock(BillItem item)
+    {
+        var product = allProducts.FirstOrDefault(p => p.Id == item.ProductId);
+        if (product == null)
+            return 0;
+
+        if (item.ProductVariantId.HasValue)
+        {
+            var variant = product.Variants?.FirstOrDefault(v => v.Id == item.ProductVariantId.Value);
+            return variant?.Quantity ?? 0;
+        }
+
+        return product.Quantity;
     }
 
     private void UpdatePrice(BillItem item, ChangeEventArgs e)
@@ -388,7 +645,8 @@
     }
 
     private void GoBack() => Navigation.NavigateTo("/billing");
-    private void AddManualItem()
+
+    private async Task AddManualItem()
     {
         if (string.IsNullOrWhiteSpace(manualItemName))
         {
@@ -402,25 +660,31 @@
             i.ProductId == Guid.Empty &&
             i.ProductVariantId == null);
 
+        string itemLabel = manualItemName.Trim();
+
         if (existing != null)
         {
             existing.Quantity++;
+            lastAddedItem = existing;
         }
         else
         {
-            billItems.Add(new BillItem
+            var newItem = new BillItem
             {
                 ProductId = Guid.Empty,
                 ProductName = manualItemName.Trim(),
                 UnitPrice = manualItemPrice,
                 CostPrice = 0,
                 Quantity = 1
-            });
+            };
+            billItems.Add(newItem);
+            lastAddedItem = newItem;
         }
 
         nameError = false;
         manualItemName = "";
         manualItemPrice = 0;
+
+        await ShowItemAddedSuccess(itemLabel);
     }
 }
-

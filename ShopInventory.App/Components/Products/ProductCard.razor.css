@@ -673,7 +673,10 @@
         .summary-box strong.sale {
             color: #16a34a;
         }
-
+.old-box strong {
+    color: #888;
+    text-decoration: line-through;
+}
 
 .btn-toggle-section {
     border: 1px solid #dbe3ef;

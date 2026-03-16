@@ -33,7 +33,8 @@
                              Quantity="@product.Quantity"
                              Category="@(product.Category ?? "")"
                              Unit="@(product.Unit ?? "")"
-                             ImageUrl="@GetImageSource(product.ImagePath)" />
+                             ImageUrl="@GetImageSource(product.ImagePath)"
+                             OldPrice="@(product.OldPrice?.ToString("F2") ?? "")" />
             }
         </div>
     }
