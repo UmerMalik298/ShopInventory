@@ -673,7 +673,10 @@
         .summary-box strong.sale {
             color: #16a34a;
         }
-
+.old-box strong {
+    color: #888;
+    text-decoration: line-through;
+}
 
 .btn-toggle-section {
     border: 1px solid #dbe3ef;
@@ -715,3 +718,21 @@
     gap: 12px;
     margin-bottom: 12px;
 }
+
+.btn-add-bill {
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+    .btn-add-bill:hover {
+        background: #1e293b;
+    }

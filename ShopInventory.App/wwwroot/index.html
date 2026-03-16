@@ -36,6 +36,33 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         };
+
+        // ← ADD THIS
+        window.printPdfFile = function (fileName, base64) {
+            const byteChars = atob(base64);
+            const byteNums = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                byteNums[i] = byteChars.charCodeAt(i);
+            }
+            const blob = new Blob([new Uint8Array(byteNums)], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+
+            // Create hidden iframe instead of window.open (MAUI WebView compatible)
+            let iframe = document.getElementById('print-iframe');
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'print-iframe';
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+            }
+
+            iframe.src = url;
+            iframe.onload = function () {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                URL.revokeObjectURL(url);
+            };
+        };
     </script>
 </body>
 </html>

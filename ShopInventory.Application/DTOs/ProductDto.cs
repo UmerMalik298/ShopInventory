@@ -13,6 +13,7 @@
         public string? ImagePath { get; set; }
         public bool HasVariants { get; set; } // ← add this
         public List<ProductVariantDto> Variants { get; set; } = new();
+        public decimal? OldPrice { get; set; }
     }
 
     public class CreateProductDto
@@ -26,5 +27,7 @@
         public int Quantity { get; set; } = 1;
         public string? ImagePath { get; set; }
         public bool HasVariants { get; set; } = false; // ← add this
+
+        public decimal? OldPrice { get; set; }
     }
 }

@@ -3,6 +3,8 @@
 @using ShopInventory.App.Components.Common
 @inject IProductVariantService VariantService
 @inject ISaleService SaleService
+@inject ShopInventory.Infrastructure.Services.CartService CartService
+@inject NavigationManager Navigation
 
 <div class="product-card @StockStatusClass" @onclick="OpenDrawer">
     <div class="product-image-wrap">
@@ -47,6 +49,13 @@
                 <span class="label">Cost Price</span>
                 <strong>@(showCost? CostPrice : "••••")</strong>
             </div>
+            @if (!string.IsNullOrEmpty(OldPrice) && OldPrice != "0.00")
+            {
+                <div class="price-box old-box">
+                    <span class="label">Old Price</span>
+                    <strong>@(showCost? OldPrice : "••••")</strong>
+                </div>
+            }
         </div>
 
         <div class="meta">
@@ -63,6 +72,18 @@
         }
 
         <div class="tap-hint">Tap to manage</div>
+        <button class="btn-add-bill @(_addedToBill ? "added" : "")"
+                @onclick="AddToBill"
+                @onclick:stopPropagation="true">
+            @if (_addedToBill)
+            {
+                <span>✓ Added!</span>
+            }
+            else
+            {
+                <span>🧾 Add to Bill</span>
+            }
+        </button>
     </div>
 </div>
 
@@ -356,6 +377,8 @@
     [Parameter] public string Category { get; set; } = "";
     [Parameter] public string Unit { get; set; } = "";
     [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public string? OldPrice { get; set; }
+
 
     private int _currentQuantity;
     private int _variantCount;
@@ -569,6 +592,26 @@
         addingVariant = false;
     }
 
+    private bool _addedToBill = false;
+
+    private async Task AddToBill()
+    {
+        CartService.AddItem(new ShopInventory.Infrastructure.Services.CartItem
+        {
+            ProductId = ProductId,
+            Name = Name,
+            UnitPrice = decimal.Parse(SalePrice),
+            CostPrice = decimal.Parse(CostPrice),
+            Quantity = 1
+        });
+
+        // Show brief feedback on the button
+        _addedToBill = true;
+        StateHasChanged();
+        await Task.Delay(1500);
+        _addedToBill = false;
+        StateHasChanged();
+    }
     private async Task DeleteVariantAsync(Guid id)
     {
         await VariantService.DeleteAsync(id);

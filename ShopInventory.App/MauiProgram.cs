@@ -40,7 +40,7 @@ public static class MauiProgram
             sp.GetRequiredService<ApplicationDbContext>());
 
         builder.Services.AddInfrastructure(builder.Configuration);
-
+       
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Services.AddSingleton<LicenseService>();
         builder.Logging.AddDebug();
@@ -54,21 +54,26 @@ public static class MauiProgram
             db.Database.Migrate();
         }
 
-        // Start sync with its own fresh scope
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                using var scope = app.Services.CreateScope();
-                var sync = scope.ServiceProvider.GetRequiredService<ISyncService>();
-                await sync.SyncAsync();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Sync error: {ex}");
-            }
-        });
-
+        // 24-hour auto sync loop
+        //_ = Task.Run(async () =>
+        //{
+        //    await Task.Delay(TimeSpan.FromSeconds(10)); // wait for app to load
+        //    while (true)
+        //    {
+        //        try
+        //        {
+        //            using var scope = app.Services.CreateScope();
+        //            var sync = scope.ServiceProvider.GetRequiredService<ISyncService>();
+        //            await sync.SyncAsync();
+        //            System.Diagnostics.Debug.WriteLine($"[AutoSync] Done at {DateTime.UtcNow}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            System.Diagnostics.Debug.WriteLine($"[AutoSync] Error: {ex.Message}");
+        //        }
+        //        await Task.Delay(TimeSpan.FromHours(24));
+        //    }
+        //});
         return app;
     }
 }

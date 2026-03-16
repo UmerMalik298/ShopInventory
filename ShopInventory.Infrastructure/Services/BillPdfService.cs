@@ -8,146 +8,168 @@ namespace ShopInventory.App.Services
 {
     public class BillPdfService
     {
+        // Change this to 58 if you have a 58mm printer
+        private const float PrinterWidthMm = 80f;
+
         public byte[] GeneratePdf(Bill bill)
         {
             QuestPDF.Settings.License = LicenseType.Community;
+
+
+            float dynamicHeight = 280 + (bill.Items.Count * 20);
+            if (!string.IsNullOrEmpty(bill.Notes)) dynamicHeight += 20;
+            if (!string.IsNullOrEmpty(bill.CustomerName)) dynamicHeight += 15;
+            if (!string.IsNullOrEmpty(bill.CustomerPhone)) dynamicHeight += 15;
+            if (bill.DiscountAmount > 0) dynamicHeight += 15;
 
             var document = QuestPDF.Fluent.Document.Create(container =>
             {
                 container.Page(page =>
                 {
-                    page.Size(PageSizes.A5);
-                    page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
+                    page.Size(new PageSize(PrinterWidthMm * 2.8346f, dynamicHeight));
+                    page.Margin(6);
+                    page.DefaultTextStyle(x => x.FontSize(8).FontFamily("Arial"));
 
                     page.Content().Column(col =>
                     {
-                        // Header
+                        // ── Header ──
                         col.Item().AlignCenter().Text("SHEER RABBANI AUTOS")
-                            .FontSize(20).Bold();
+                            .FontSize(13).Bold();
+                        col.Item().AlignCenter().Text("شیر ربانی آٹوز")
+                            .FontSize(10);
                         col.Item().AlignCenter().Text("Receipt / Invoice")
-                            .FontSize(11).FontColor(Colors.Grey.Medium);
-                        col.Item().Height(10);
+                            .FontSize(8).FontColor(Colors.Grey.Medium);
+                        col.Item().Height(4);
 
-                        // Bill meta
-                        col.Item().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
-                            .PaddingBottom(8).Column(meta =>
+                        // ── Divider ──
+                        col.Item().BorderBottom(0.5f).BorderColor(Colors.Black).PaddingBottom(4).Column(meta =>
+                        {
+                            meta.Item().Row(r =>
+                            {
+                                r.RelativeItem().Text("Bill No:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                r.RelativeItem().AlignRight().Text(bill.BillNo).Bold().FontSize(8);
+                            });
+                            meta.Item().Row(r =>
+                            {
+                                r.RelativeItem().Text("Date:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                r.RelativeItem().AlignRight().Text(bill.BilledAt.ToString("dd/MM/yyyy hh:mm tt")).FontSize(8);
+                            });
+                            if (!string.IsNullOrEmpty(bill.CustomerName))
                             {
                                 meta.Item().Row(r =>
                                 {
-                                    r.RelativeItem().Text("Bill No.").FontColor(Colors.Grey.Medium);
-                                    r.RelativeItem().AlignRight().Text(bill.BillNo).Bold().FontFamily("Courier New");
+                                    r.RelativeItem().Text("Customer:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                    r.RelativeItem().AlignRight().Text(bill.CustomerName).FontSize(8);
                                 });
+                            }
+                            if (!string.IsNullOrEmpty(bill.CustomerPhone))
+                            {
                                 meta.Item().Row(r =>
                                 {
-                                    r.RelativeItem().Text("Date").FontColor(Colors.Grey.Medium);
-                                    r.RelativeItem().AlignRight().Text(bill.BilledAt.ToString("dd MMM yyyy, hh:mm tt"));
+                                    r.RelativeItem().Text("Phone:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                    r.RelativeItem().AlignRight().Text(bill.CustomerPhone).FontSize(8);
                                 });
-                                if (!string.IsNullOrEmpty(bill.CustomerName))
-                                {
-                                    meta.Item().Row(r =>
-                                    {
-                                        r.RelativeItem().Text("Customer").FontColor(Colors.Grey.Medium);
-                                        r.RelativeItem().AlignRight().Text(bill.CustomerName);
-                                    });
-                                }
-                                if (!string.IsNullOrEmpty(bill.CustomerPhone))
-                                {
-                                    meta.Item().Row(r =>
-                                    {
-                                        r.RelativeItem().Text("Phone").FontColor(Colors.Grey.Medium);
-                                        r.RelativeItem().AlignRight().Text(bill.CustomerPhone);
-                                    });
-                                }
-                            });
-
-                        col.Item().Height(8);
-
-                        // Items table header
-                        col.Item().Background(Colors.Grey.Lighten3).Padding(6).Row(r =>
-                        {
-                            r.RelativeItem(4).Text("Item").Bold();
-                            r.RelativeItem(1).AlignCenter().Text("Qty").Bold();
-                            r.RelativeItem(2).AlignRight().Text("Price").Bold();
-                            r.RelativeItem(2).AlignRight().Text("Total").Bold();
+                            }
                         });
 
-                        // Items
+                        col.Item().Height(4);
+
+                        // ── Items Header ──
+                        col.Item().BorderBottom(0.5f).BorderColor(Colors.Black)
+                            .PaddingBottom(3).Row(r =>
+                            {
+                                r.RelativeItem(5).Text("Item").Bold().FontSize(8);
+                                r.ConstantItem(20).AlignCenter().Text("Qty").Bold().FontSize(8);
+                                r.ConstantItem(35).AlignRight().Text("Price").Bold().FontSize(8);
+                                r.ConstantItem(38).AlignRight().Text("Total").Bold().FontSize(8);
+                            });
+
+                        // ── Items ──
                         foreach (var item in bill.Items)
                         {
                             var name = string.IsNullOrEmpty(item.VariantName)
                                 ? item.ProductName
-                                : $"{item.ProductName} ({item.VariantName})";
+                                : $"{item.ProductName}\n({item.VariantName})";
 
-                            col.Item().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3)
-                                .Padding(6).Row(r =>
+                            col.Item().BorderBottom(0.3f).BorderColor(Colors.Grey.Lighten2)
+                                .PaddingVertical(3).Row(r =>
                                 {
-                                    r.RelativeItem(4).Text(name);
-                                    r.RelativeItem(1).AlignCenter().Text(item.Quantity.ToString());
-                                    r.RelativeItem(2).AlignRight().Text($"Rs. {item.UnitPrice:N0}");
-                                    r.RelativeItem(2).AlignRight().Text($"Rs. {item.TotalPrice:N0}").Bold();
+                                    r.RelativeItem(5).Text(name).FontSize(8);
+                                    r.ConstantItem(20).AlignCenter().Text(item.Quantity.ToString()).FontSize(8);
+                                    r.ConstantItem(35).AlignRight().Text($"{item.UnitPrice:N0}").FontSize(8);
+                                    r.ConstantItem(38).AlignRight().Text($"{item.TotalPrice:N0}").Bold().FontSize(8);
                                 });
                         }
 
-                        col.Item().Height(8);
+                        col.Item().Height(4);
 
-                        // Totals
-                        col.Item().BorderTop(0.5f).BorderColor(Colors.Grey.Lighten2)
-                            .PaddingTop(8).Column(totals =>
+                        // ── Totals ──
+                        col.Item().BorderTop(0.5f).BorderColor(Colors.Black).PaddingTop(4).Column(totals =>
+                        {
+                            totals.Item().Row(r =>
+                            {
+                                r.RelativeItem().Text("Subtotal:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                r.RelativeItem().AlignRight().Text($"Rs. {bill.SubTotal:N0}").FontSize(8);
+                            });
+
+                            if (bill.DiscountAmount > 0)
                             {
                                 totals.Item().Row(r =>
                                 {
-                                    r.RelativeItem().Text("Subtotal").FontColor(Colors.Grey.Medium);
-                                    r.RelativeItem().AlignRight().Text($"Rs. {bill.SubTotal:N0}");
+                                    r.RelativeItem().Text("Discount:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                    r.RelativeItem().AlignRight().Text($"- Rs. {bill.DiscountAmount:N0}").FontSize(8);
                                 });
-                                if (bill.DiscountAmount > 0)
+                            }
+
+                            // Grand total — bigger, bold
+                            totals.Item().BorderTop(0.5f).BorderColor(Colors.Black)
+                                .PaddingTop(3).Row(r =>
                                 {
-                                    totals.Item().Row(r =>
-                                    {
-                                        r.RelativeItem().Text("Discount").FontColor(Colors.Green.Medium);
-                                        r.RelativeItem().AlignRight().Text($"- Rs. {bill.DiscountAmount:N0}").FontColor(Colors.Green.Medium);
-                                    });
-                                }
-                                totals.Item().Background(Colors.Grey.Lighten3).Padding(6).Row(r =>
-                                {
-                                    r.RelativeItem().Text("TOTAL").Bold().FontSize(12);
-                                    r.RelativeItem().AlignRight().Text($"Rs. {bill.TotalAmount:N0}").Bold().FontSize(12);
+                                    r.RelativeItem().Text("TOTAL").Bold().FontSize(11);
+                                    r.RelativeItem().AlignRight().Text($"Rs. {bill.TotalAmount:N0}").Bold().FontSize(11);
                                 });
-                            });
+                        });
 
-                        col.Item().Height(10);
+                        col.Item().Height(4);
 
-                        // Payment info
-                        col.Item().Background(Colors.Grey.Lighten4).Padding(8).Column(pay =>
+                        // ── Payment ──
+                        col.Item().BorderTop(0.3f).BorderColor(Colors.Grey.Lighten1).PaddingTop(4).Column(pay =>
                         {
                             pay.Item().Row(r =>
                             {
-                                r.RelativeItem().Text("Payment Method").FontColor(Colors.Grey.Medium);
-                                r.RelativeItem().AlignRight().Text(bill.PaymentMethod.ToString());
+                                r.RelativeItem().Text("Payment:").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                r.RelativeItem().AlignRight().Text(bill.PaymentMethod.ToString()).FontSize(8);
                             });
                             pay.Item().Row(r =>
                             {
-                                r.RelativeItem().Text("Payment Status").FontColor(Colors.Grey.Medium);
+                                r.RelativeItem().Text("Status:").FontSize(8).FontColor(Colors.Grey.Darken1);
                                 var statusColor = bill.PaymentStatus == PaymentStatus.Paid
-                                    ? Colors.Green.Medium
+                                    ? Colors.Green.Darken1
                                     : bill.PaymentStatus == PaymentStatus.Unpaid
-                                        ? Colors.Orange.Medium
-                                        : Colors.Blue.Medium;
-                                r.RelativeItem().AlignRight().Text(bill.PaymentStatus.ToString()).FontColor(statusColor).Bold();
+                                        ? Colors.Orange.Darken1
+                                        : Colors.Blue.Darken1;
+                                r.RelativeItem().AlignRight().Text(bill.PaymentStatus.ToString())
+                                    .FontColor(statusColor).Bold().FontSize(8);
                             });
                         });
 
                         if (!string.IsNullOrEmpty(bill.Notes))
                         {
-                            col.Item().Height(6);
-                            col.Item().Text($"Notes: {bill.Notes}").Italic().FontColor(Colors.Grey.Medium);
+                            col.Item().Height(4);
+                            col.Item().Text($"Note: {bill.Notes}").Italic().FontSize(7).FontColor(Colors.Grey.Medium);
                         }
 
-                        col.Item().Height(16);
+                        col.Item().Height(8);
 
-                        // Footer
-                        col.Item().AlignCenter().Text("Thank you for your purchase!")
-                            .FontColor(Colors.Grey.Medium).Italic();
+                        // ── Footer ──
+                        col.Item().BorderTop(0.3f).BorderColor(Colors.Grey.Lighten1).PaddingTop(6)
+                            .AlignCenter().Text("Thank you for your business!")
+                            .FontSize(8).FontColor(Colors.Grey.Medium).Italic();
+
+                        col.Item().AlignCenter().Text("Please come again")
+                            .FontSize(7).FontColor(Colors.Grey.Lighten1);
+
+                        col.Item().Height(6);
                     });
                 });
             });

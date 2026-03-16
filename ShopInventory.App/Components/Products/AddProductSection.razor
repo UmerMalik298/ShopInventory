@@ -24,7 +24,10 @@
             <label class="form-label">Cost Price</label>
             <InputNumber class="form-control" @bind-Value="_model.CostPrice" />
         </div>
-
+        <div>
+            <label class="form-label">Old Price</label>
+            <InputNumber class="form-control" @bind-Value="_model.OldPrice" placeholder="Previous price (optional)" />
+        </div>
         <div>
             <label class="form-label">Quantity</label>
             <InputNumber class="form-control" @bind-Value="_model.Quantity" />

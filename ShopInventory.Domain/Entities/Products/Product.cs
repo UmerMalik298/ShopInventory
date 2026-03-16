@@ -14,7 +14,7 @@ namespace ShopInventory.Domain.Entities.Products
         public string? Barcode { get; set; }
         public decimal CostPrice { get; set; }
         public decimal SalePrice { get; set; }
-
+        public decimal? OldPrice { get; set; } = null;
         public string? Category { get; set; }         
         public string? Unit { get; set; }
 

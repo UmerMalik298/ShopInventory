@@ -2,6 +2,7 @@
 using ShopInventory.Application.DTOs;
 using ShopInventory.Application.Interfaces;
 using ShopInventory.Domain.Entities.Products;
+using ShopInventory.Infrastructure.Migrations;
 
 namespace ShopInventory.Infrastructure.Services
 {
@@ -52,6 +53,7 @@ namespace ShopInventory.Infrastructure.Services
                 Quantity = dto.Quantity,
                 ImagePath = dto.ImagePath,
                 Category = dto.Category,
+                OldPrice = dto.OldPrice,
                 Unit = dto.Unit
             };
 
@@ -77,6 +79,7 @@ namespace ShopInventory.Infrastructure.Services
             Sku = p.Sku,
             SalePrice = p.SalePrice,
             CostPrice = p.CostPrice,
+            OldPrice = p.OldPrice,
             Quantity = p.Quantity,
             ImagePath = p.ImagePath,
             Category = p.Category,
@@ -91,6 +94,7 @@ namespace ShopInventory.Infrastructure.Services
             product.Sku = dto.Sku;
             product.Quantity = dto.Quantity;
             product.SalePrice = dto.SalePrice;
+            product.OldPrice = dto.OldPrice;
             product.CostPrice = dto.CostPrice;
             product.Category = dto.Category;
             product.Unit = dto.Unit;
