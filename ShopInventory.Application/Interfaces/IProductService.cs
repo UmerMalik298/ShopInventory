@@ -11,5 +11,9 @@ namespace ShopInventory.Application.Interfaces
 
         Task DeleteAsync(Guid id);
         Task UpdateAsync(ProductDto dto);
+
+
+        Task<PagedResult<ProductDto>> GetPagedAsync(string search, int page, int pageSize);  
+
     }
 }

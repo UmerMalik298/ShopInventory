@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ShopInventory.App.Services;
+
 using ShopInventory.Application.Interfaces;
 using ShopInventory.Application.Services;
 using ShopInventory.Infrastructure.Configuration;
 using ShopInventory.Infrastructure.Services;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,8 +27,8 @@ namespace ShopInventory.Infrastructure.Configuration
             services.AddScoped<ISyncService, SyncService>();
             services.AddScoped<ISaleService, SaleService>();
             services.AddScoped<IBillService, BillService>();
-            services.AddScoped<IBillService, BillService>();
-            services.AddSingleton<BillPdfService>();
+       
+    
             services.AddSingleton<CartService>();
 
 

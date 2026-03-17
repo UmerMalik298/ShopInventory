@@ -409,28 +409,28 @@
     private string StockLabel => _currentQuantity switch
     {
         0 => "Out of Stock",
-        <= 3 => "Low Stock",
+        <= 2 => "Low Stock",
         _ => "In Stock"
     };
 
     private string StockStatusClass => _currentQuantity switch
     {
         0 => "status-out",
-        <= 3 => "status-low",
+        <= 2 => "status-low",
         _ => "status-in"
     };
 
     private string GetVariantStatusLabel(int qty) => qty switch
     {
         0 => "Out",
-        <= 3 => "Low",
+        <= 2 => "Low",
         _ => "In Stock"
     };
 
     private string GetVariantStatusClass(int qty) => qty switch
     {
         0 => "status-out",
-        <= 3 => "status-low",
+        <= 2 => "status-low",
         _ => "status-in"
     };
 

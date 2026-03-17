@@ -4,6 +4,7 @@ using ShopInventory.App.Services;
 using ShopInventory.Application.Interfaces;
 using ShopInventory.Infrastructure.Configuration;
 using ShopInventory.Infrastructure.Data;
+using ShopInventory.Infrastructure.Services;
 
 namespace ShopInventory.App;
 
@@ -40,11 +41,13 @@ public static class MauiProgram
             sp.GetRequiredService<ApplicationDbContext>());
 
         builder.Services.AddInfrastructure(builder.Configuration);
-       
+        builder.Services.AddSingleton<LoaderService>();
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Services.AddSingleton<LicenseService>();
         builder.Logging.AddDebug();
-
+      
+        builder.Services.AddSingleton<BillPdfService>();
+        builder.Services.AddSingleton<CartService>();
         var app = builder.Build();
 
         // Scope only for migration

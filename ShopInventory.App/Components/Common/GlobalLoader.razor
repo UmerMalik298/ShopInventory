@@ -1,0 +1,98 @@
+﻿@inject ShopInventory.App.Services.LoaderService Loader
+@implements IDisposable
+
+@if (Loader.IsLoading)
+{
+    <div class="global-loader-overlay">
+        <div class="global-loader-box">
+            <div class="gl-spinner"></div>
+            <div class="gl-text">Please wait...</div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Loader.OnChanged += OnLoaderChanged;
+    }
+
+    private void OnLoaderChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Loader.OnChanged -= OnLoaderChanged;
+    }
+}
+
+<style>
+    .global-loader-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        animation: fadeIn .15s ease;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .global-loader-box {
+        background: #fff;
+        border-radius: 16px;
+        padding: 28px 36px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.2);
+        animation: slideUp .2s ease;
+    }
+
+    @@keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .gl-spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid #f1f5f9;
+        border-top-color: #cc0000;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .gl-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0f172a;
+        font-family: 'DM Sans', sans-serif;
+    }
+</style>
