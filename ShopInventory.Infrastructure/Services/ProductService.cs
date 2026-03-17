@@ -103,9 +103,42 @@ namespace ShopInventory.Infrastructure.Services
             await _db.SaveChangesAsync();
         }
 
+
+        public async Task<PagedResult<ProductDto>> GetPagedAsync(string search, int page, int pageSize)
+        {
+            var query = _db.Product.Where(p => p.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim().ToLower();
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(q) ||
+                    p.Sku.ToLower().Contains(q) ||
+                    (p.Category != null && p.Category.ToLower().Contains(q)));
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(p => p.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => ToDto(p))
+                .ToListAsync();
+
+            return new PagedResult<ProductDto>
+            {
+                Items = items,
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
         private static string GenerateSku(string name) =>
             (name.Length >= 3 ? name[..3].ToUpper() : "SKU")
             + "-" + Guid.NewGuid().ToString()[..4].ToUpper();
     }
+
+
 
 }

@@ -2,7 +2,10 @@
 
 <div class="tab-card">
     <h5 class="mb-4">Manage Stock</h5>
-
+    <input class="form-control search-box mb-3"
+           placeholder="Search by name or SKU..."
+           @bind="searchText"
+           @bind:event="oninput" />
     @if (Products.Count == 0)
     {
         <p class="empty-text">No products available.</p>
@@ -21,7 +24,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var product in Products)
+                    @foreach (var product in Products
+                                    .Where(p => string.IsNullOrWhiteSpace(searchText) ||
+                                    p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                                    p.Sku.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                                    .ToList())
                     {
                         <tr>
                             <td>@product.Name</td>
@@ -158,7 +165,7 @@
     private decimal editCostPrice = 0;
     private string editCategory = "";
     private string editUnit = "";
-
+    private string searchText = "";
     private void OpenEdit(ProductDto product)
     {
         editingProduct = product;

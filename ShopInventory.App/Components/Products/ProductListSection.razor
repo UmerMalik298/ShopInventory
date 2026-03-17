@@ -1,29 +1,34 @@
 ﻿@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@inject IProductService ProductService
 
 <div class="tab-card">
     <div class="section-top">
         <h5>All Products</h5>
-
-        <InputText class="form-control search-box"
-                   placeholder="Search by name, SKU or category"
-                   @bind-Value="searchText"
-                   @oninput="OnInputChanged" />
-
-        @* <button class="btn btn-dark" @onclick="SearchAsync">Search</button>
-        <button class="btn btn-outline-secondary" @onclick="ResetAsync">Reset</button> *@
+        <input class="form-control search-box"
+               placeholder="Search by name, SKU or category"
+               value="@_search"
+               @oninput="OnSearchInput" />
     </div>
 
-    @if (Products.Count == 0)
+    @if (_loading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading products...</p>
+        </div>
+    }
+    else if (_paged.Items.Count == 0)
     {
         <div class="empty-state">
             <span>📦</span>
-            <p>No products found. Add your first product!</p>
+            <p>@(string.IsNullOrWhiteSpace(_search) ? "No products found. Add your first product!" : $"No results for \"{_search}\"")</p>
         </div>
     }
     else
     {
         <div class="products-grid">
-            @foreach (var product in Products)
+            @foreach (var product in _paged.Items)
             {
                 <ProductCard ProductId="@product.Id"
                              Name="@product.Name"
@@ -37,35 +42,100 @@
                              OldPrice="@(product.OldPrice?.ToString("F2") ?? "")" />
             }
         </div>
+
+        <!-- Pagination -->
+        @if (_paged.TotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="pg-btn" disabled="@(!_paged.HasPrev)" @onclick="@(() => GoToPage(_page - 1))">&#8592;</button>
+
+                @for (int i = StartPage; i <= EndPage; i++)
+                {
+                    var pageNum = i;
+                    <button class="pg-btn @(pageNum == _page ? "pg-active" : "")"
+                            @onclick="@(() => GoToPage(pageNum))">
+                        @pageNum
+                    </button>
+                }
+
+                <button class="pg-btn" disabled="@(!_paged.HasNext)" @onclick="@(() => GoToPage(_page + 1))">&#8594;</button>
+                <span class="pg-info">@_paged.TotalCount products</span>
+            </div>
+        }
     }
 </div>
 
 @code {
+    // These are still here so the parent page doesn't break if it passes them
     [Parameter] public List<ProductDto> Products { get; set; } = new();
     [Parameter] public EventCallback<string> OnSearch { get; set; }
     [Parameter] public EventCallback OnReset { get; set; }
 
-    private string searchText = string.Empty;
+    // Callback so parent page can react to data changes (e.g. after add/delete)
+    [Parameter] public EventCallback OnRefreshNeeded { get; set; }
 
-    private async Task SearchAsync()
+    private PagedResult<ProductDto> _paged = new() { Items = new() };
+    private string _search = "";
+    private int _page = 1;
+    private const int PageSize = 20;
+    private bool _loading = false;
+    private System.Timers.Timer? _debounce;
+
+    // Page button range — max 5 centered around current
+    private int StartPage => Math.Max(1, _page - 2);
+    private int EndPage => Math.Min(_paged.TotalPages, StartPage + 4);
+
+    protected override async Task OnInitializedAsync()
     {
-        await OnSearch.InvokeAsync(searchText);
+        await LoadAsync();
     }
 
-    private async Task ResetAsync()
+    // Call this from parent after adding/deleting a product
+    public async Task RefreshAsync()
     {
-        searchText = string.Empty;
-        await OnReset.InvokeAsync();
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        _paged = await ProductService.GetPagedAsync(_search, _page, PageSize);
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        _page = 1;
+
+        // Debounce 300ms — don't query on every keystroke
+        _debounce?.Stop();
+        _debounce?.Dispose();
+        _debounce = new System.Timers.Timer(300);
+        _debounce.Elapsed += async (_, _) =>
+        {
+            _debounce?.Dispose();
+            await InvokeAsync(LoadAsync);
+        };
+        _debounce.AutoReset = false;
+        _debounce.Start();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        _page = page;
+        await LoadAsync();
     }
 
     private string GetImageSource(string? path)
     {
         if (string.IsNullOrWhiteSpace(path)) return "";
-
         if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return path;
-
         if (File.Exists(path))
         {
             var bytes = File.ReadAllBytes(path);
@@ -78,16 +148,9 @@
                 ".gif" => "image/gif",
                 _ => "application/octet-stream"
             };
-
             return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
         }
-
         return "";
     }
-    private async Task OnInputChanged(ChangeEventArgs e)
-    {
-        searchText = e.Value?.ToString() ?? "";
-        await OnSearch.InvokeAsync(searchText);
-    }
-
 }
+
