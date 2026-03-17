@@ -23,8 +23,9 @@
 
         <!-- Display name -->
         <ApplicationTitle>Sheer Rabbani Autos</ApplicationTitle>
+		<ApplicationIcon>Resources\AppIcon\appicon.ico</ApplicationIcon>
 
-        <!-- App Identifier -->
+		<!-- App Identifier -->
         <ApplicationId>com.companyname.shopinventory.app</ApplicationId>
 
         <!-- Versions -->
@@ -72,5 +73,9 @@
       <ProjectReference Include="..\ShopInventory.Application\ShopInventory.Application.csproj" />
       <ProjectReference Include="..\ShopInventory.Infrastructure\ShopInventory.Infrastructure.csproj" />
     </ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+		<Content Include="Resources\AppIcon\appicon.ico" CopyToOutputDirectory="Always" />
+	</ItemGroup>
 
 </Project>
