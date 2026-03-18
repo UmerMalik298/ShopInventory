@@ -27,17 +27,28 @@
         </div>
         <div class="status-filters">
             <button class="filter-pill @(activeFilter == "all" ? "active" : "")"
-                    @onclick="@(() => SetFilter("all"))">All</button>
+                    @onclick="@(() => SetFilter("all"))">
+                All
+            </button>
             <button class="filter-pill unpaid @(activeFilter == "unpaid" ? "active" : "")"
-                    @onclick="@(() => SetFilter("unpaid"))">Unpaid</button>
+                    @onclick="@(() => SetFilter("unpaid"))">
+                Unpaid
+            </button>
             <button class="filter-pill paid @(activeFilter == "paid" ? "active" : "")"
-                    @onclick="@(() => SetFilter("paid"))">Paid</button>
+                    @onclick="@(() => SetFilter("paid"))">
+                Paid
+            </button>
             <button class="filter-pill partial @(activeFilter == "partial" ? "active" : "")"
-                    @onclick="@(() => SetFilter("partial"))">Partial</button>
+                    @onclick="@(() => SetFilter("partial"))">
+                Partial
+            </button>
+            <button class="filter-pill draft @(activeFilter == "draft" ? "active" : "")"
+                    @onclick="@(() => SetFilter("draft"))">
+                Drafts
+            </button>
         </div>
     </div>
 
-    <!-- Bills List -->
     @if (isLoading)
     {
         <div class="loading-state">
@@ -59,19 +70,42 @@
         <div class="bills-list">
             @foreach (var bill in filteredBills)
             {
-                <div class="bill-card" @onclick="@(() => OpenBill(bill.Id))">
+                <div class="bill-card @(bill.IsDraft ? "draft-card" : "")"
+                     @onclick="@(() => OpenBill(bill.Id))">
                     <div class="bill-main">
                         <div class="bill-info">
-                            <span class="bill-no">@bill.BillNo</span>
-                            <span class="customer-name">@(string.IsNullOrEmpty(bill.CustomerName) ? "Walk-in Customer" : bill.CustomerName)</span>
-                            <span class="bill-date">@bill.BilledAt.ToString("dd MMM yyyy, hh:mm tt")</span>
+                            <div class="bill-no-row">
+                                <span class="bill-no">@bill.BillNo</span>
+                                @if (bill.IsDraft)
+                                {
+                                    <span class="draft-badge">Draft</span>
+                                }
+                            </div>
+                            <span class="customer-name">
+                                @(string.IsNullOrEmpty(bill.CustomerName) ? "Walk-in Customer" : bill.CustomerName)
+                            </span>
+                            <span class="bill-date">@bill.BilledAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</span>
                         </div>
                         <div class="bill-right">
                             <span class="bill-amount">Rs. @bill.TotalAmount.ToString("N0")</span>
-                            <span class="status-badge @GetStatusClass(bill.PaymentStatus)">
-                                @bill.PaymentStatus
-                            </span>
+                            @if (!bill.IsDraft)
+                            {
+                                <span class="status-badge @GetStatusClass(bill.PaymentStatus)">
+                                    @bill.PaymentStatus
+                                </span>
+                            }
                             <span class="items-count">@bill.Items.Count item(s)</span>
+
+                            @if (bill.IsDraft)
+                            {
+                                <!-- Edit draft navigates to edit page -->
+                                <button class="btn-edit-bill" @onclick:stopPropagation="true"
+                                        @onclick="@(() => EditBill(bill.Id))"
+                                        title="Continue editing draft">
+                                    ✏️
+                                </button>
+                            }
+
                             <button class="btn-delete-bill" @onclick:stopPropagation="true"
                                     @onclick="@(() => AskDeleteBill(bill))">
                                 ✕
@@ -83,6 +117,7 @@
         </div>
     }
 </div>
+
 <ConfirmDialog IsOpen="showDeleteConfirm"
                Title="Delete Bill"
                Message="@($"Are you sure you want to delete bill \"{billToDelete?.BillNo}\"? This cannot be undone.")"
@@ -135,12 +170,14 @@
                 b.BillNo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                 (b.CustomerName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
 
-        if (activeFilter == "unpaid")
-            query = query.Where(b => b.PaymentStatus == PaymentStatus.Unpaid);
-        else if (activeFilter == "paid")
-            query = query.Where(b => b.PaymentStatus == PaymentStatus.Paid);
-        else if (activeFilter == "partial")
-            query = query.Where(b => b.PaymentStatus == PaymentStatus.PartiallyPaid);
+        query = activeFilter switch
+        {
+            "unpaid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Unpaid),
+            "paid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Paid),
+            "partial" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.PartiallyPaid),
+            "draft" => query.Where(b => b.IsDraft),
+            _ => query  // "all" — show everything
+        };
 
         filteredBills = query.ToList();
     }
@@ -155,6 +192,8 @@
 
     private void CreateNewBill() => Navigation.NavigateTo("/billing/create");
     private void OpenBill(Guid id) => Navigation.NavigateTo($"/billing/{id}");
+    private void EditBill(Guid id) => Navigation.NavigateTo($"/billing/edit/{id}");
+
     private void AskDeleteBill(Bill bill)
     {
         billToDelete = bill;
@@ -179,3 +218,51 @@
     }
 }
 
+<style>
+    .bill-no-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .draft-badge {
+        background: #fef3c7;
+        color: #92400e;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 6px;
+        border: 1px solid #fde68a;
+    }
+
+    .draft-card {
+        border-left: 3px solid #f59e0b !important;
+        background: #fffbeb !important;
+    }
+
+    .filter-pill.draft {
+        background: #fef3c7;
+        color: #92400e;
+        border-color: #fde68a;
+    }
+
+        .filter-pill.draft.active {
+            background: #f59e0b;
+            color: #fff;
+            border-color: #f59e0b;
+        }
+
+    .btn-edit-bill {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 15px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        transition: background .15s;
+    }
+
+        .btn-edit-bill:hover {
+            background: #f1f5f9;
+        }
+</style>

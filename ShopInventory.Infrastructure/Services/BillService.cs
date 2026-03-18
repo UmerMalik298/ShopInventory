@@ -157,7 +157,64 @@ namespace ShopInventory.Infrastructure.Services
                 await _db.SaveChangesAsync();
             }
         }
+        public async Task<Bill> SaveDraftAsync(Bill bill)
+        {
+            // Generate all IDs fresh — don't reuse anything from the form
+            bill.Id = Guid.NewGuid();
+            bill.BillNo = $"DRAFT-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}";
+            bill.BilledAt = DateTime.UtcNow;
+            bill.IsDraft = true;
+            bill.SubTotal = bill.Items.Sum(i => i.UnitPrice * i.Quantity);
+            bill.TotalAmount = Math.Max(0, bill.SubTotal - bill.DiscountAmount);
 
+            // Detach items from any existing tracking and assign fresh IDs
+            foreach (var item in bill.Items)
+            {
+                item.Id = Guid.NewGuid();
+                item.BillId = bill.Id;
+
+                // Detach if EF is already tracking this entity
+                var entry = _db.Entry(item);
+                if (entry.State != EntityState.Detached)
+                    entry.State = EntityState.Detached;
+            }
+
+            // Add as completely new — no Update, no Attach
+            _db.Bill.Add(bill);
+            await _db.SaveChangesAsync();
+            return bill;
+        }
+        public async Task UpdateDraftAsync(Guid draftId, Bill updatedBill)
+        {
+            var existing = await _db.Bill
+                .Include(b => b.Items)
+                .FirstOrDefaultAsync(b => b.Id == draftId);
+
+            if (existing == null) return;
+
+            // Update fields
+            existing.CustomerName = updatedBill.CustomerName;
+            existing.CustomerPhone = updatedBill.CustomerPhone;
+            existing.Notes = updatedBill.Notes;
+            existing.DiscountAmount = updatedBill.DiscountAmount;
+            existing.PaymentStatus = updatedBill.PaymentStatus;
+            existing.PaymentMethod = updatedBill.PaymentMethod;
+            existing.SubTotal = updatedBill.Items.Sum(i => i.UnitPrice * i.Quantity);
+            existing.TotalAmount = Math.Max(0, existing.SubTotal - existing.DiscountAmount);
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            // Replace items — remove old, add new
+            _db.BillItem.RemoveRange(existing.Items);
+
+            foreach (var item in updatedBill.Items)
+            {
+                item.Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id;
+                item.BillId = draftId;
+                existing.Items.Add(item);
+            }
+
+            await _db.SaveChangesAsync();
+        }
         public string GenerateBillNo()
         {
             var date = DateTime.Now.ToString("yyyyMMdd");

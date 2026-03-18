@@ -16,7 +16,10 @@
         <button class="btn-back" @onclick="GoBack">&#8592; Back</button>
         <h2>New Bill</h2>
         <div class="top-actions">
-            <button class="btn-outline" @onclick="SaveDraft" disabled="@isSaving">Save Draft</button>
+            <button class="btn-outline" @onclick="SaveDraft"
+                    disabled="@(isSaving || isDraftSaving)">
+                @(isDraftSaving ? "Saving..." : "💾 Save Draft")
+            </button>
             <button class="btn-primary" @onclick="SaveBill" disabled="@(billItems.Count == 0 || isSaving)">
                 @(isSaving ? "Saving..." : "Save Bill")
             </button>
@@ -40,8 +43,16 @@
                 <div class="section-title">Customer Info</div>
                 <div class="form-row">
                     <div class="form-field">
-                        <label>Customer Name</label>
-                        <input type="text" placeholder="Walk-in customer" @bind="customerName" />
+                        <label>Customer Name <span class="required">*</span></label>
+                        <input type="text"
+                               placeholder="Walk-in customer"
+                               @bind="customerName"
+                               @oninput="@(() => customerNameError = false)"
+                               class="@(customerNameError ? "input-error" : "")" />
+                        @if (customerNameError)
+                        {
+                            <span class="field-error">Customer name is required.</span>
+                        }
                     </div>
                     <div class="form-field" style="max-width:180px">
                         <label>Phone Number</label>
@@ -353,6 +364,8 @@
 }
 
 @code {
+    private bool customerNameError = false;
+    private bool isDraftSaving = false;
     private string manualItemName = "";
     private decimal manualItemPrice = 0;
     private string customerName = "";
@@ -652,13 +665,21 @@
 
     private async Task SaveBill()
     {
+        customerNameError = false;
+
+        if (string.IsNullOrWhiteSpace(customerName))
+        {
+            customerNameError = true;
+            return;
+        }
+
         if (billItems.Count == 0) return;
         isSaving = true;
         try
         {
             var bill = new Bill
             {
-                CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName,
+                CustomerName = customerName.Trim(),
                 CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
                 Notes = string.IsNullOrWhiteSpace(notes) ? null : notes,
                 DiscountAmount = discountAmount,
@@ -672,7 +693,6 @@
         }
         catch (InvalidOperationException ex)
         {
-            // Stock validation error from BillService — show friendly dialog
             errorDialogMessage = ex.Message;
             showErrorDialog = true;
             isSaving = false;
@@ -685,9 +705,41 @@
         }
     }
 
-    private void SaveDraft()
+    private async Task SaveDraft()
     {
-        // Optional: implement draft save logic
+        if (billItems.Count == 0)
+        {
+            errorDialogMessage = "Add at least one item before saving a draft.";
+            showErrorDialog = true;
+            return;
+        }
+
+        isDraftSaving = true;
+        try
+        {
+            var bill = new Bill
+            {
+                CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName,
+                CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
+                Notes = string.IsNullOrWhiteSpace(notes) ? null : notes,
+                DiscountAmount = discountAmount,
+                PaymentStatus = paymentStatus,
+                PaymentMethod = paymentMethod,
+                Items = billItems
+            };
+
+            await BillService.SaveDraftAsync(bill);
+            Navigation.NavigateTo("/billing");
+        }
+        catch (Exception ex)
+        {
+            errorDialogMessage = $"Failed to save draft: {ex.Message}";
+            showErrorDialog = true;
+        }
+        finally
+        {
+            isDraftSaving = false;
+        }
     }
 
     private void GoBack() => Navigation.NavigateTo("/billing");
