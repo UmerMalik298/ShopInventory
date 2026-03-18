@@ -46,7 +46,11 @@
     gap: 8px;
     margin-bottom: 14px;
 }
-
+.btn-add-bill.disabled-bill {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
 .product-name {
     margin: 0;
     font-size: 17px;

@@ -36,8 +36,9 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         };
-
-        // ← ADD THIS
+        // printPdfFile removed — now handled natively via Launcher in C#
+    </script>
+        <!--// ← ADD THIS
         window.printPdfFile = function (fileName, base64) {
             const byteChars = atob(base64);
             const byteNums = new Array(byteChars.length);
@@ -63,6 +64,6 @@
                 URL.revokeObjectURL(url);
             };
         };
-    </script>
+    </script>-->
 </body>
 </html>

@@ -22,7 +22,14 @@
             </button>
         </div>
     </div>
-
+    <ConfirmDialog IsOpen="@showErrorDialog"
+                   Title="Cannot Save Bill"
+                   Message="@errorDialogMessage"
+                   ConfirmText="OK"
+                   CancelText=""
+                   IsDanger="true"
+                   OnConfirm="@(() => showErrorDialog = false)"
+                   OnCancel="@(() => showErrorDialog = false)" />
     <div class="bill-layout">
 
         <!-- LEFT: Customer + Items -->
@@ -360,6 +367,8 @@
     private string errorMessage = "";
     private bool nameError = false;
     private bool showManualEntry = false;
+    private bool showErrorDialog = false;
+    private string errorDialogMessage = "";
 
     // Dialog states
     private bool showOutOfStockDialog = false;
@@ -661,9 +670,17 @@
             var saved = await BillService.CreateBillAsync(bill);
             Navigation.NavigateTo($"/billing/{saved.Id}");
         }
+        catch (InvalidOperationException ex)
+        {
+            // Stock validation error from BillService — show friendly dialog
+            errorDialogMessage = ex.Message;
+            showErrorDialog = true;
+            isSaving = false;
+        }
         catch (Exception ex)
         {
-            errorMessage = $"Error saving bill: {ex.Message}";
+            errorDialogMessage = $"Something went wrong: {ex.Message}";
+            showErrorDialog = true;
             isSaving = false;
         }
     }

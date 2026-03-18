@@ -199,9 +199,13 @@
         try
         {
             var pdfBytes = BillPdfService.GeneratePdf(bill);
-            var base64 = Convert.ToBase64String(pdfBytes);
-            var fileName = $"{bill.BillNo}.pdf";
-            await JS.InvokeVoidAsync("printPdfFile", fileName, base64);
+            var tempPath = Path.Combine(Path.GetTempPath(), $"{bill.BillNo}.pdf");
+            await File.WriteAllBytesAsync(tempPath, pdfBytes);
+
+            await Launcher.Default.OpenAsync(new OpenFileRequest
+            {
+                File = new ReadOnlyFile(tempPath)
+            });
         }
         catch (Exception ex)
         {
