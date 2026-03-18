@@ -36,6 +36,9 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         };
+        window.openWhatsApp = function (url) {
+            window.open(url, '_blank');
+        };
         // printPdfFile removed — now handled natively via Launcher in C#
     </script>
         <!--// ← ADD THIS
