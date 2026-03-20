@@ -1,0 +1,493 @@
+﻿@page "/billing/edit/{Id:guid}"
+@using ShopInventory.Domain.Entities.Sales
+@using ShopInventory.Domain.Entities.Enums
+@using ShopInventory.Domain.Entities.Billing
+@using ShopInventory.Domain.Entities.Products
+@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
+@inject IBillService BillService
+@inject IProductService ProductService
+@inject NavigationManager Navigation
+
+<div class="create-bill-page">
+
+    <div class="top-bar">
+        <button class="btn-back" @onclick="GoBack">&#8592; Back</button>
+        <h2>Edit Draft</h2>
+        <div class="top-actions">
+            <button class="btn-outline" @onclick="UpdateDraft" disabled="@isSaving">
+                @(isSaving ? "Saving..." : "💾 Update Draft")
+            </button>
+            <button class="btn-primary" @onclick="FinalSave"
+                    disabled="@(billItems.Count == 0 || isSaving)">
+                @(isSaving ? "Saving..." : "Save Bill")
+            </button>
+        </div>
+    </div>
+
+    <ConfirmDialog IsOpen="@showErrorDialog"
+                   Title="Cannot Save Bill"
+                   Message="@errorDialogMessage"
+                   ConfirmText="OK"
+                   CancelText=""
+                   IsDanger="true"
+                   OnConfirm="@(() => showErrorDialog = false)"
+                   OnCancel="@(() => showErrorDialog = false)" />
+
+    @if (isLoading)
+    {
+        <div class="loading-state"><div class="spinner"></div></div>
+    }
+    else
+    {
+        <div class="bill-layout">
+            <div class="left-col">
+
+                <!-- Customer Info -->
+                <div class="section-card">
+                    <div class="section-title">Customer Info</div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label>Customer Name <span class="required">*</span></label>
+                            <input type="text" placeholder="Walk-in customer"
+                                   @bind="customerName"
+                                   @oninput="@(() => customerNameError = false)"
+                                   class="@(customerNameError ? "input-error" : "")" />
+                            @if (customerNameError)
+                            {
+                                <span class="field-error">Customer name is required.</span>
+                            }
+                        </div>
+                        <div class="form-field" style="max-width:180px">
+                            <label>Phone Number</label>
+                            <input type="text" placeholder="+92 300 0000000" @bind="customerPhone" />
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label>Notes (optional)</label>
+                        <input type="text" placeholder="Any notes for this bill..." @bind="notes" />
+                    </div>
+                </div>
+
+                <!-- Add Items -->
+                <div class="section-card">
+                    <div class="section-title-row">
+                        <span class="section-title">Products</span>
+                        <button class="btn-toggle-manual" @onclick="ToggleManualEntry">
+                            @(showManualEntry ? "✕ Close" : "＋ Manual Item")
+                        </button>
+                    </div>
+
+                    <div class="search-area">
+                        <div class="search-wrap">
+                            <input type="text"
+                                   placeholder="Search product by name or SKU..."
+                                   value="@productSearch"
+                                   @oninput="SearchProducts"
+                                   @onfocus="@(() => showDropdown = true)"
+                                   @onblur="HideDropdown" />
+
+                            @if (showDropdown && searchResults.Count > 0)
+                            {
+                                <div class="dropdown">
+                                    @foreach (var product in searchResults)
+                                    {
+                                        @if (product.HasVariants)
+                                        {
+                                            @foreach (var variant in product.Variants)
+                                            {
+                                                var p = product; var v = variant;
+                                                <div class="dropdown-item @(v.Quantity == 0 ? "out-of-stock-item" : "")"
+                                                     @onmousedown="@(() => AddItemFromVariant(p, v))">
+                                                    <div class="item-name">@product.Name <span class="variant-tag">@variant.Name</span></div>
+                                                    <div class="item-meta">
+                                                        <span>Rs. @variant.SalePrice.ToString("N0")</span>
+                                                        <span class="stock @(variant.Quantity == 0 ? "oos" : "")">Stock: @variant.Quantity</span>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            var p = product;
+                                            <div class="dropdown-item @(p.Quantity == 0 ? "out-of-stock-item" : "")"
+                                                 @onmousedown="@(() => AddItem(p))">
+                                                <div class="item-name">@product.Name <span class="sku-tag">@product.Sku</span></div>
+                                                <div class="item-meta">
+                                                    <span>Rs. @product.SalePrice.ToString("N0")</span>
+                                                    <span class="stock @(product.Quantity == 0 ? "oos" : "")">Stock: @product.Quantity</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    @if (showManualEntry)
+                    {
+                        <div class="manual-entry-panel">
+                            <div class="manual-entry-bar">
+                                <input type="text" class="manual-input" placeholder="Item name..."
+                                       value="@manualItemName"
+                                       @oninput="@((e) => manualItemName = e.Value?.ToString() ?? "")" />
+                                <input type="number" class="manual-price-input" placeholder="Price" @bind="manualItemPrice" />
+                                <button class="btn-add-manual" @onclick="AddManualItem">+ Add</button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (billItems.Count == 0)
+                    {
+                        <div class="items-empty"><p>No products added yet.</p></div>
+                    }
+                    else
+                    {
+                        <table class="items-table">
+                            <thead>
+                                <tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in billItems)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="product-cell">
+                                                <span class="prod-name">@item.ProductName</span>
+                                                @if (!string.IsNullOrEmpty(item.VariantName))
+                                                {
+                                                    <span class="variant-chip">@item.VariantName</span>
+                                                }
+                                                @if (item.ProductId == Guid.Empty)
+                                                {
+                                                    <span class="manual-chip">Manual</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="qty-ctrl">
+                                                <button @onclick="@(() => ChangeQty(item, -1))">−</button>
+                                                <span>@item.Quantity</span>
+                                                <button @onclick="@(() => ChangeQty(item, 1))">+</button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="price-input"
+                                                   value="@item.UnitPrice"
+                                                   @onchange="@((e) => { if (decimal.TryParse(e.Value?.ToString(), out var p)) item.UnitPrice = p; })" />
+                                        </td>
+                                        <td class="total-cell">Rs. @((item.UnitPrice * item.Quantity).ToString("N0"))</td>
+                                        <td><button class="btn-remove" @onclick="@(() => billItems.Remove(item))">✕</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+
+            <!-- RIGHT: Summary -->
+            <div class="right-col">
+                <div class="section-card summary-card">
+                    <div class="section-title">Bill Summary</div>
+                    <div class="bill-no-display">
+                        <span class="label">Bill No.</span>
+                        <span class="value mono">@_draftBillNo</span>
+                    </div>
+                    <div class="bill-no-display">
+                        <span class="label">Date</span>
+                        <span class="value">@DateTime.Now.ToString("dd MMM yyyy")</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="summary-row items-count-row">
+                        <span>Items</span>
+                        <span class="items-badge">@billItems.Count item(s)</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <span>Rs. @SubTotal.ToString("N0")</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Discount</span>
+                        <div class="discount-input-wrap">
+                            <input type="number" min="0" class="discount-input"
+                                   value="@discountAmount"
+                                   @oninput="@((e) => { if (decimal.TryParse(e.Value?.ToString(), out var d)) discountAmount = d; })" />
+                            <span>Rs.</span>
+                        </div>
+                    </div>
+                    <div class="summary-row grand-total">
+                        <span>Total</span>
+                        <span>Rs. @GrandTotal.ToString("N0")</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="form-field">
+                        <label>Payment Status</label>
+                        <select @bind="paymentStatus">
+                            <option value="@PaymentStatus.Unpaid">Unpaid</option>
+                            <option value="@PaymentStatus.Paid">Paid</option>
+                            <option value="@PaymentStatus.PartiallyPaid">Partially Paid</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label>Payment Method</label>
+                        <select @bind="paymentMethod">
+                            <option value="@PaymentMethod.Cash">Cash</option>
+                            <option value="@PaymentMethod.Card">Card</option>
+                            <option value="@PaymentMethod.Online">Online Transfer</option>
+                        </select>
+                    </div>
+                    <div class="divider"></div>
+                    <button class="btn-save-full" @onclick="FinalSave"
+                            disabled="@(billItems.Count == 0 || isSaving)">
+                        @(isSaving ? "Saving..." : "Save Bill")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Guid _draftId;
+    private string _draftBillNo = "";
+    private List<BillItem> billItems = new();
+    private List<ProductDto> allProducts = new();
+    private List<ProductDto> searchResults = new();
+
+    private string customerName = "";
+    private string customerPhone = "";
+    private string notes = "";
+    private string productSearch = "";
+    private decimal discountAmount = 0;
+    private PaymentStatus paymentStatus = PaymentStatus.Unpaid;
+    private PaymentMethod paymentMethod = PaymentMethod.Cash;
+
+    private bool isSaving = false;
+    private bool isLoading = true;
+    private bool showDropdown = false;
+    private bool showManualEntry = false;
+    private bool customerNameError = false;
+    private bool showErrorDialog = false;
+    private string errorDialogMessage = "";
+    private string manualItemName = "";
+    private decimal manualItemPrice = 0;
+
+    private decimal SubTotal => billItems.Sum(i => i.UnitPrice * i.Quantity);
+    private decimal GrandTotal => Math.Max(0, SubTotal - discountAmount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        allProducts = await ProductService.GetAllAsync();
+        var draft = await BillService.GetBillByIdAsync(Id);
+
+        if (draft == null || !draft.IsDraft)
+        {
+            Navigation.NavigateTo("/billing");
+            return;
+        }
+
+        // Load draft data into form
+        _draftId = draft.Id;
+        _draftBillNo = draft.BillNo;
+        customerName = draft.CustomerName ?? "";
+        customerPhone = draft.CustomerPhone ?? "";
+        notes = draft.Notes ?? "";
+        discountAmount = draft.DiscountAmount;
+        paymentStatus = draft.PaymentStatus;
+        paymentMethod = draft.PaymentMethod;
+        // Detach from EF tracking — we manage them manually
+        billItems = draft.Items.Select(i => new BillItem
+        {
+            Id = i.Id,
+            BillId = i.BillId,
+            ProductId = i.ProductId,
+            ProductVariantId = i.ProductVariantId,
+            ProductName = i.ProductName,
+            VariantName = i.VariantName,
+            UnitPrice = i.UnitPrice,
+            CostPrice = i.CostPrice,
+            Quantity = i.Quantity
+        }).ToList();
+
+        isLoading = false;
+    }
+
+    // Update draft — overwrite existing draft in DB
+    private async Task UpdateDraft()
+    {
+        if (billItems.Count == 0)
+        {
+            errorDialogMessage = "Add at least one item before saving.";
+            showErrorDialog = true;
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            await BillService.UpdateDraftAsync(_draftId, BuildBill(isDraft: true));
+            Navigation.NavigateTo("/billing");
+        }
+        catch (Exception ex)
+        {
+            errorDialogMessage = ex.Message;
+            showErrorDialog = true;
+        }
+        finally { isSaving = false; }
+    }
+
+    // Final save — converts draft to real bill
+    private async Task FinalSave()
+    {
+        customerNameError = false;
+        if (string.IsNullOrWhiteSpace(customerName))
+        {
+            customerNameError = true;
+            return;
+        }
+        if (billItems.Count == 0) return;
+
+        isSaving = true;
+        try
+        {
+            // Delete old draft, create real bill
+            await BillService.DeleteBillAsync(_draftId);
+            var bill = BuildBill(isDraft: false);
+            var saved = await BillService.CreateBillAsync(bill);
+            Navigation.NavigateTo($"/billing/{saved.Id}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorDialogMessage = ex.Message;
+            showErrorDialog = true;
+            isSaving = false;
+        }
+        catch (Exception ex)
+        {
+            errorDialogMessage = $"Something went wrong: {ex.Message}";
+            showErrorDialog = true;
+            isSaving = false;
+        }
+    }
+
+    private Bill BuildBill(bool isDraft) => new Bill
+    {
+        CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName.Trim(),
+        CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim(),
+        Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+        DiscountAmount = discountAmount,
+        PaymentStatus = paymentStatus,
+        PaymentMethod = paymentMethod,
+        IsDraft = isDraft,
+        Items = billItems
+    };
+
+    private void SearchProducts(ChangeEventArgs e)
+    {
+        productSearch = e.Value?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(productSearch)) { searchResults.Clear(); return; }
+        searchResults = allProducts
+            .Where(p => p.Name.Contains(productSearch, StringComparison.OrdinalIgnoreCase)
+                     || p.Sku.Contains(productSearch, StringComparison.OrdinalIgnoreCase))
+            .Take(8).ToList();
+        showDropdown = true;
+    }
+
+    private void HideDropdown()
+    {
+        Task.Delay(150).ContinueWith(_ => { showDropdown = false; InvokeAsync(StateHasChanged); });
+    }
+
+    private void AddItem(ProductDto product)
+    {
+        if (product.Quantity <= 0) return;
+
+        // Check if this product already exists in bill items
+        var existing = billItems.FirstOrDefault(i =>
+            i.ProductId == product.Id &&
+            !i.ProductVariantId.HasValue);
+
+        if (existing != null)
+        {
+            // Check stock limit
+            var availableStock = product.Quantity;
+            if (existing.Quantity >= availableStock)
+            {
+                // Already at max stock — don't add more
+                ClearSearch();
+                return;
+            }
+            existing.Quantity++;
+        }
+        else
+        {
+            billItems.Add(new BillItem
+            {
+                Id = Guid.NewGuid(),
+                ProductId = product.Id,
+                ProductName = product.Name,
+                UnitPrice = product.SalePrice,
+                CostPrice = product.CostPrice,
+                Quantity = 1
+            });
+        }
+        ClearSearch();
+    }
+
+    private void AddItemFromVariant(ProductDto product, ProductVariantDto variant)
+    {
+        if (variant.Quantity <= 0) return;
+
+        var existing = billItems.FirstOrDefault(i =>
+            i.ProductId == product.Id &&
+            i.ProductVariantId == variant.Id);
+
+        if (existing != null)
+        {
+            if (existing.Quantity >= variant.Quantity)
+            {
+                ClearSearch();
+                return;
+            }
+            existing.Quantity++;
+        }
+        else
+        {
+            billItems.Add(new BillItem
+            {
+                Id = Guid.NewGuid(),
+                ProductId = product.Id,
+                ProductVariantId = variant.Id,
+                ProductName = product.Name,
+                VariantName = variant.Name,
+                UnitPrice = variant.SalePrice,
+                CostPrice = variant.CostPrice,
+                Quantity = 1
+            });
+        }
+        ClearSearch();
+    }
+
+    private void AddManualItem()
+    {
+        if (string.IsNullOrWhiteSpace(manualItemName) || manualItemPrice <= 0) return;
+        billItems.Add(new BillItem { ProductId = Guid.Empty, ProductName = manualItemName.Trim(), UnitPrice = manualItemPrice, CostPrice = 0, Quantity = 1 });
+        manualItemName = ""; manualItemPrice = 0;
+    }
+
+    private void ChangeQty(BillItem item, int delta)
+    {
+        var newQty = item.Quantity + delta;
+        if (newQty < 1) return;
+        item.Quantity = newQty;
+    }
+
+    private void ToggleManualEntry() => showManualEntry = !showManualEntry;
+    private void ClearSearch() { productSearch = ""; searchResults.Clear(); showDropdown = false; }
+    private void GoBack() => Navigation.NavigateTo("/billing");
+}

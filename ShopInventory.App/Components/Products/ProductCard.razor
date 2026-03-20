@@ -292,7 +292,23 @@
                     </div>
                 }
             </div>
-
+            <button class="btn-add-bill @(_addedToBill ? "added" : "") @(_currentQuantity == 0 ? "disabled-bill" : "")"
+                    @onclick="AddToBill"
+                    @onclick:stopPropagation="true"
+                    disabled="@(_currentQuantity == 0)">
+                @if (_currentQuantity == 0)
+                {
+                    <span>Out of Stock</span>
+                }
+                else if (_addedToBill)
+                {
+                    <span>✓ Added!</span>
+                }
+                else
+                {
+                    <span>🧾 Add to Bill</span>
+                }
+            </button>
             <div class="drawer-section">
                 <div class="drawer-section-header">
                     <h4 class="drawer-section-title">Sale History</h4>
@@ -593,23 +609,29 @@
     }
 
     private bool _addedToBill = false;
+    private bool _addingToBill = false;
 
     private async Task AddToBill()
     {
+        if (_currentQuantity == 0) return;
+        if (_addingToBill) return; 
+        _addingToBill = true;
+
         CartService.AddItem(new ShopInventory.Infrastructure.Services.CartItem
         {
             ProductId = ProductId,
             Name = Name,
             UnitPrice = decimal.Parse(SalePrice),
             CostPrice = decimal.Parse(CostPrice),
-            Quantity = 1
+            Quantity = 1,
+            MaxStock = _currentQuantity
         });
 
-        // Show brief feedback on the button
         _addedToBill = true;
         StateHasChanged();
         await Task.Delay(1500);
         _addedToBill = false;
+        _addingToBill = false;
         StateHasChanged();
     }
     private async Task DeleteVariantAsync(Guid id)

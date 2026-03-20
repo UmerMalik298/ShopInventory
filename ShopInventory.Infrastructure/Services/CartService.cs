@@ -15,6 +15,7 @@ namespace ShopInventory.Infrastructure.Services
         public decimal UnitPrice { get; set; }
         public decimal CostPrice { get; set; }
         public int Quantity { get; set; } = 1;
+        public int MaxStock { get; set; } = 0;
     }
 
     public class CartService
@@ -28,7 +29,12 @@ namespace ShopInventory.Infrastructure.Services
                 i.ProductId == item.ProductId && i.VariantId == item.VariantId);
 
             if (existing != null)
+            {
+                // Cap at available stock
+                if (item.MaxStock > 0 && existing.Quantity >= item.MaxStock)
+                    return; // silently ignore — already at max
                 existing.Quantity++;
+            }
             else
                 Items.Add(item);
 
