@@ -69,12 +69,38 @@ while (true)
     var clientName = Console.ReadLine()?.Trim() ?? "Client";
 
     Console.ForegroundColor = ConsoleColor.Yellow;
-    Console.Write("License duration in months (default 12): ");
+    Console.Write("Enter duration (e.g., 7 days, 1 month, 2 years) [default 12 months]: ");
     Console.ResetColor();
-    var monthsInput = Console.ReadLine()?.Trim();
-    int months = int.TryParse(monthsInput, out var m) ? m : 12;
 
-    var expiryDate = DateTime.Now.AddMonths(months);
+    var durationInput = Console.ReadLine()?.Trim().ToLower();
+
+    DateTime expiryDate;
+
+    if (string.IsNullOrWhiteSpace(durationInput))
+    {
+        expiryDate = DateTime.Now.AddMonths(12);
+    }
+    else
+    {
+        var parts = durationInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        int value = 12;
+        string unit = "month";
+
+        if (parts.Length >= 1 && int.TryParse(parts[0], out int parsedValue))
+            value = parsedValue;
+
+        if (parts.Length >= 2)
+            unit = parts[1];
+
+        expiryDate = unit switch
+        {
+            "day" or "days" => DateTime.Now.AddDays(value),
+            "month" or "months" => DateTime.Now.AddMonths(value),
+            "year" or "years" => DateTime.Now.AddYears(value),
+            _ => DateTime.Now.AddMonths(12) // fallback
+        };
+    }
     var key = GenerateLicenseKey(machineId, clientName, expiryDate);
 
     Console.WriteLine();
