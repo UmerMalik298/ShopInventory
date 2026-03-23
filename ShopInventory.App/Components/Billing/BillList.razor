@@ -96,7 +96,7 @@
                             }
                             <span class="items-count">@bill.Items.Count item(s)</span>
 
-                            @if (bill.IsDraft)
+                            @* @if (bill.IsDraft)
                             {
                                 <!-- Edit draft navigates to edit page -->
                                 <button class="btn-edit-bill" @onclick:stopPropagation="true"
@@ -104,8 +104,12 @@
                                         title="Continue editing draft">
                                     ✏️
                                 </button>
-                            }
-
+                            } *@
+                            <button class="btn-edit-bill" @onclick:stopPropagation="true"
+                                    @onclick="@(() => EditBill(bill.Id))"
+                                    title="@(bill.IsDraft ? "Continue editing draft" : "Edit bill")">
+                                ✏️
+                            </button>
                             <button class="btn-delete-bill" @onclick:stopPropagation="true"
                                     @onclick="@(() => AskDeleteBill(bill))">
                                 ✕

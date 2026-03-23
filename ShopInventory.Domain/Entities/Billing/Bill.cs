@@ -15,6 +15,8 @@ namespace ShopInventory.Domain.Entities.Billing
         public decimal DiscountAmount { get; set; } = 0;
         public decimal TotalAmount { get; set; }
         public bool IsDraft { get; set; } = false;
+
+        public bool InventoryDeducted { get; set; } = false;
         public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Unpaid;
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
 

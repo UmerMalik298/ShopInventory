@@ -25,10 +25,11 @@
     }
     else
     {
-        <!-- Top Bar (hidden on print) -->
+        <!-- Top Bar -->
         <div class="top-bar no-print">
             <button class="btn-back" @onclick="GoBack">&#8592; All Bills</button>
             <div class="top-actions">
+
                 <select class="status-select @GetStatusSelectClass(bill.PaymentStatus)"
                         @bind="bill.PaymentStatus"
                         @bind:after="SaveStatus">
@@ -36,8 +37,23 @@
                     <option value="@PaymentStatus.Paid">Paid</option>
                     <option value="@PaymentStatus.PartiallyPaid">Partially Paid</option>
                 </select>
+
+                <!-- Edit -->
+                <button class="btn-action btn-edit" @onclick="EditBill" title="Edit Bill">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <span>Edit</span>
+                </button>
+
+                <!-- Print -->
                 <button class="btn-action btn-print" @onclick="PrintBill" title="Print">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="6 9 6 2 18 2 18 9" />
                         <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
                         <rect x="6" y="14" width="12" height="8" />
@@ -45,7 +61,7 @@
                     <span>Print</span>
                 </button>
 
-                <!-- Replace single Share button with two -->
+                <!-- WhatsApp -->
                 <button class="btn-action btn-share" @onclick="ShareWhatsAppText" title="Share via WhatsApp">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
@@ -53,22 +69,45 @@
                     <span>WhatsApp</span>
                 </button>
 
+                <!-- Save PDF -->
                 <button class="btn-action btn-download" @onclick="DownloadBill" title="Download">
-                    <svg class="dl-arrow" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="dl-arrow" width="17" height="17" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.2"
+                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 3v13" />
                         <polyline points="7 13 12 18 17 13" />
                         <path d="M3 21h18" />
                     </svg>
                     <span>Save PDF</span>
                 </button>
+
+                <!-- Deduct Stock — shows badge if already deducted -->
+                @if (bill.InventoryDeducted)
+                {
+                    <span class="stock-deducted-badge">&#10003; Stock Deducted</span>
+                }
+                else
+                {
+                    <button class="btn-action btn-deduct" @onclick="AskDeductInventory"
+                            disabled="@isDeducting" title="Deduct from inventory">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 12V22H4V12" />
+                            <path d="M22 7H2v5h20V7z" />
+                            <path d="M12 22V7" />
+                        </svg>
+                        <span>@(isDeducting ? "Deducting..." : "Deduct Stock")</span>
+                    </button>
+                }
+
             </div>
         </div>
 
-        <!-- Bill Receipt (this section is printed) -->
+        <!-- Bill Receipt -->
         <div class="receipt-wrap" id="printArea">
             <div class="receipt">
 
-                <!-- Receipt Header -->
                 <div class="receipt-header">
                     <div class="shop-name">Sheer Rabbani Autos</div>
                     <div class="shop-sub">Receipt / Invoice</div>
@@ -99,7 +138,6 @@
                     }
                 </div>
 
-                <!-- Items -->
                 <div class="items-section">
                     <div class="items-header">
                         <span>Item</span>
@@ -124,7 +162,6 @@
                     }
                 </div>
 
-                <!-- Totals -->
                 <div class="totals-section">
                     <div class="total-row">
                         <span>Subtotal</span>
@@ -143,7 +180,6 @@
                     </div>
                 </div>
 
-                <!-- Payment Status -->
                 <div class="payment-info">
                     <div class="pay-row">
                         <span>Payment Method</span>
@@ -169,6 +205,46 @@
                 </div>
             </div>
         </div>
+
+        <!-- Deduct confirm dialog -->
+        <ConfirmDialog IsOpen="showDeductConfirm"
+                       Title="Deduct Stock"
+                       Message="This will deduct all items in this bill from inventory. This can only be done once. Continue?"
+                       ConfirmText="Yes, Deduct"
+                       CancelText="Cancel"
+                       IsDanger="false"
+                       OnConfirm="ConfirmDeductInventory"
+                       OnCancel="@(() => showDeductConfirm = false)" />
+
+        <!-- Already deducted warning dialog -->
+        <ConfirmDialog IsOpen="showAlreadyDeductedDialog"
+                       Title="Already Deducted"
+                       Message="Stock for this bill has already been deducted from inventory. It cannot be deducted again."
+                       ConfirmText="OK"
+                       CancelText=""
+                       IsDanger="false"
+                       OnConfirm="@(() => showAlreadyDeductedDialog = false)"
+                       OnCancel="@(() => showAlreadyDeductedDialog = false)" />
+
+        <!-- Deduct success dialog -->
+        <ConfirmDialog IsOpen="showDeductSuccessDialog"
+                       Title="Stock Deducted"
+                       Message="Inventory has been updated successfully."
+                       ConfirmText="OK"
+                       CancelText=""
+                       IsDanger="false"
+                       OnConfirm="@(() => showDeductSuccessDialog = false)"
+                       OnCancel="@(() => showDeductSuccessDialog = false)" />
+
+        <!-- Deduct error dialog -->
+        <ConfirmDialog IsOpen="showDeductErrorDialog"
+                       Title="Deduction Failed"
+                       Message="@deductErrorMessage"
+                       ConfirmText="OK"
+                       CancelText=""
+                       IsDanger="true"
+                       OnConfirm="@(() => showDeductErrorDialog = false)"
+                       OnCancel="@(() => showDeductErrorDialog = false)" />
     }
 </div>
 
@@ -177,6 +253,14 @@
 
     private Bill? bill;
     private bool isLoading = true;
+    private bool isDeducting = false;
+
+    // Dialog states
+    private bool showDeductConfirm = false;
+    private bool showAlreadyDeductedDialog = false;
+    private bool showDeductSuccessDialog = false;
+    private bool showDeductErrorDialog = false;
+    private string deductErrorMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -190,55 +274,70 @@
             await BillService.UpdatePaymentStatusAsync(bill.Id, bill.PaymentStatus);
     }
 
+    private void EditBill() => Navigation.NavigateTo($"/billing/edit/{Id}");
+
+    // Called when user clicks "Deduct Stock" button
+    private void AskDeductInventory()
+    {
+        if (bill == null) return;
+
+        if (bill.InventoryDeducted)
+        {
+            // Already done — show warning instead of confirm
+            showAlreadyDeductedDialog = true;
+            return;
+        }
+
+        showDeductConfirm = true;
+    }
+
+    // Called when user confirms in the dialog
+    private async Task ConfirmDeductInventory()
+    {
+        showDeductConfirm = false;
+        if (bill == null) return;
+
+        isDeducting = true;
+        try
+        {
+            await BillService.DeductInventoryAsync(bill.Id);
+            bill.InventoryDeducted = true; // update UI instantly without reload
+            showDeductSuccessDialog = true;
+        }
+        catch (Exception ex)
+        {
+            deductErrorMessage = ex.Message;
+            showDeductErrorDialog = true;
+        }
+        finally
+        {
+            isDeducting = false;
+            StateHasChanged();
+        }
+    }
     private async Task PrintBill()
     {
         if (bill == null) return;
         try
         {
             var pdfBytes = BillPdfService.GeneratePdf(bill);
-            var tempPath = Path.Combine(Path.GetTempPath(), $"{bill.BillNo}.pdf");
+            var tempPath = Path.Combine(Path.GetTempPath(), $"bill_{bill.BillNo}.pdf");
             await File.WriteAllBytesAsync(tempPath, pdfBytes);
 
-            await Launcher.Default.OpenAsync(new OpenFileRequest
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                File = new ReadOnlyFile(tempPath)
+                FileName = tempPath,
+                UseShellExecute = true
             });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Print failed: {ex.Message}");
+            deductErrorMessage = ex.Message;
+            showDeductErrorDialog = true;
         }
     }
 
     private bool isSharing = false;
-
-    private async Task ShareBill()
-    {
-        if (bill == null || isSharing) return;
-        isSharing = true;
-        try
-        {
-            // Generate PDF and save to temp file
-            var pdfBytes = BillPdfService.GeneratePdf(bill);
-            var tempPath = Path.Combine(Path.GetTempPath(), $"{bill.BillNo}.pdf");
-            await File.WriteAllBytesAsync(tempPath, pdfBytes);
-
-            // Use MAUI native share sheet — shows WhatsApp, email, etc.
-            await Share.Default.RequestAsync(new ShareFileRequest
-            {
-                Title = $"Bill {bill.BillNo}",
-                File = new ShareFile(tempPath, "application/pdf")
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Share failed: {ex.Message}");
-        }
-        finally
-        {
-            isSharing = false;
-        }
-    }
 
     private async Task DownloadBill()
     {
@@ -247,15 +346,15 @@
         {
             var pdfBytes = BillPdfService.GeneratePdf(bill);
             var base64 = Convert.ToBase64String(pdfBytes);
-            var fileName = $"{bill.BillNo}.pdf";
-            await JS.InvokeVoidAsync("downloadPdfFile", fileName, base64);
+            await JS.InvokeVoidAsync("downloadPdfFile", $"{bill.BillNo}.pdf", base64);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"PDF generation failed: {ex.Message}");
+            deductErrorMessage = ex.Message;
+            showDeductErrorDialog = true;
         }
     }
-    // WhatsApp text share — works always
+
     private async Task ShareWhatsAppText()
     {
         if (bill == null) return;
@@ -263,7 +362,6 @@
         {
             var text = BuildReceiptText();
             var encoded = Uri.EscapeDataString(text);
-
             var phone = "";
             if (!string.IsNullOrWhiteSpace(bill.CustomerPhone))
             {
@@ -273,7 +371,6 @@
                 if (phone.StartsWith("0"))
                     phone = "92" + phone[1..];
             }
-
             var url = string.IsNullOrEmpty(phone)
                 ? $"https://wa.me/?text={encoded}"
                 : $"https://wa.me/{phone}?text={encoded}";
@@ -282,9 +379,11 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"WhatsApp share failed: {ex.Message}");
+            deductErrorMessage = ex.Message;
+            showDeductErrorDialog = true;
         }
     }
+
     private string BuildReceiptText()
     {
         var sb = new System.Text.StringBuilder();
@@ -343,5 +442,3 @@
 
     private void GoBack() => Navigation.NavigateTo("/billing");
 }
-
-

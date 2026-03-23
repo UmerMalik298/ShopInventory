@@ -28,5 +28,9 @@ namespace ShopInventory.Application.Interfaces
   
         Task UpdateDraftAsync(Guid draftId, Bill updatedBill);
 
+
+        Task DeductInventoryAsync(Guid billId);
+        Task<Bill> UpdateBillAsync(Guid billId, Bill updatedBill);
+
     }
 }

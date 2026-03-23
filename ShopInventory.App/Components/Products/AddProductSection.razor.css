@@ -38,6 +38,45 @@
     color: #ef4444;
 }
 
+.duplicate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 16px;
+}
+
+.duplicate-item {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.dup-label {
+    color: #6b7280;
+    font-weight: 500;
+    min-width: 50px;
+}
+
+.dup-value {
+    color: #111;
+    font-weight: 600;
+}
+
+    .dup-value.mono {
+        font-family: monospace;
+    }
+
 @media (max-width: 768px) {
     .form-grid {
         grid-template-columns: 1fr;

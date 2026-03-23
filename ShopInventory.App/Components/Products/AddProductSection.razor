@@ -1,5 +1,7 @@
-@using ShopInventory.Application.DTOs
+﻿@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
 @using Microsoft.Maui.Storage
+@inject IProductService ProductService
 
 <div class="tab-card form-card">
     <h5 class="mb-4">Add Product</h5>
@@ -9,43 +11,39 @@
             <label class="form-label">Name <span class="required">*</span></label>
             <InputText class="form-control" @bind-Value="_model.Name" placeholder="e.g. Car Rim" />
         </div>
-
         <div>
             <label class="form-label">SKU</label>
             <InputText class="form-control" @bind-Value="_model.Sku" placeholder="e.g. RIM-001" />
         </div>
-
         <div>
             <label class="form-label">Sale Price</label>
             <InputNumber class="form-control" @bind-Value="_model.SalePrice" />
         </div>
-
         <div>
             <label class="form-label">Cost Price</label>
             <InputNumber class="form-control" @bind-Value="_model.CostPrice" />
         </div>
         <div>
             <label class="form-label">Old Price</label>
-            <InputNumber class="form-control" @bind-Value="_model.OldPrice" placeholder="Previous price (optional)" />
+            <InputNumber class="form-control" @bind-Value="_model.OldPrice"
+                         placeholder="Previous price (optional)" />
         </div>
         <div>
             <label class="form-label">Quantity</label>
             <InputNumber class="form-control" @bind-Value="_model.Quantity" />
         </div>
-
         <div>
             <label class="form-label">Category</label>
             <InputText class="form-control" @bind-Value="_model.Category" placeholder="e.g. Tyres" />
         </div>
-
         <div>
             <label class="form-label">Unit</label>
             <InputText class="form-control" @bind-Value="_model.Unit" placeholder="e.g. piece, kg" />
         </div>
-
         <div>
             <label class="form-label">Image URL</label>
-            <InputText class="form-control" @bind-Value="_model.ImagePath" placeholder="Paste link or pick below" />
+            <InputText class="form-control" @bind-Value="_model.ImagePath"
+                       placeholder="Paste link or pick below" />
         </div>
     </div>
 
@@ -67,16 +65,104 @@
     }
 </div>
 
+<!-- Duplicate warning dialog -->
+@if (showDuplicateDialog && duplicates.Count > 0)
+{
+    <div class="cd-overlay" @onclick="CancelDuplicate">
+        <div class="cd-box" @onclick:stopPropagation="true">
+
+            <div class="cd-header">
+                <h3 class="cd-title">Duplicate Product Found</h3>
+                <button class="cd-close" @onclick="CancelDuplicate">✕</button>
+            </div>
+
+            <p class="cd-message">
+                A product with the same name or SKU already exists.
+                Are you sure you want to add another one?
+            </p>
+
+            <!-- Show all matching existing products -->
+            <div class="duplicate-list">
+                @foreach (var dup in duplicates)
+                {
+                    <div class="duplicate-item">
+                        <div class="dup-row">
+                            <span class="dup-label">Name</span>
+                            <span class="dup-value">@dup.Name</span>
+                        </div>
+                        <div class="dup-row">
+                            <span class="dup-label">SKU</span>
+                            <span class="dup-value mono">@dup.Sku</span>
+                        </div>
+                        <div class="dup-row">
+                            <span class="dup-label">Price</span>
+                            <span class="dup-value">Rs. @dup.SalePrice.ToString("N0")</span>
+                        </div>
+                        <div class="dup-row">
+                            <span class="dup-label">Stock</span>
+                            <span class="dup-value">@dup.Quantity @dup.Unit</span>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="cd-actions">
+                <button class="cd-btn cd-btn-light" @onclick="CancelDuplicate">
+                    Cancel — Don't Add
+                </button>
+                <button class="cd-btn cd-btn-primary" @onclick="ConfirmAddAnyway">
+                    Yes, Add Anyway
+                </button>
+            </div>
+
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public EventCallback<CreateProductDto> OnAddProduct { get; set; }
 
     private CreateProductDto _model = new() { Quantity = 1 };
 
+    private bool showDuplicateDialog = false;
+    private List<ProductDto> duplicates = new();
+
     private async Task SubmitAsync()
     {
-        if (string.IsNullOrWhiteSpace(_model.Name))
-            return;
+        if (string.IsNullOrWhiteSpace(_model.Name)) return;
 
+        // Check for duplicates before saving
+        duplicates = await ProductService.FindDuplicatesAsync(
+            _model.Name,
+            _model.Sku ?? "");
+
+        if (duplicates.Count > 0)
+        {
+            // Show warning dialog — don't save yet
+            showDuplicateDialog = true;
+            return;
+        }
+
+        // No duplicates — save directly
+        await SaveProduct();
+    }
+
+    // User confirmed they want to add anyway
+    private async Task ConfirmAddAnyway()
+    {
+        showDuplicateDialog = false;
+        duplicates.Clear();
+        await SaveProduct();
+    }
+
+    private void CancelDuplicate()
+    {
+        showDuplicateDialog = false;
+        duplicates.Clear();
+    }
+
+    private async Task SaveProduct()
+    {
         await OnAddProduct.InvokeAsync(_model);
         _model = new CreateProductDto { Quantity = 1 };
     }
@@ -122,10 +208,133 @@
                 ".gif" => "image/gif",
                 _ => "application/octet-stream"
             };
-
             return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
         }
 
         return "";
     }
 }
+
+
+<style>
+    .cd-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cd-box {
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+
+    .cd-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .cd-title {
+        font-size: 17px;
+        font-weight: 600;
+        margin: 0;
+        color: #111;
+    }
+
+    .cd-close {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        color: #666;
+        padding: 2px 6px;
+    }
+
+    .cd-message {
+        font-size: 14px;
+        color: #444;
+        margin-bottom: 14px;
+        line-height: 1.5;
+    }
+
+    .duplicate-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 0 0 16px;
+    }
+
+    .duplicate-item {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .dup-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+    }
+
+    .dup-label {
+        color: #6b7280;
+        font-weight: 500;
+        min-width: 50px;
+    }
+
+    .dup-value {
+        color: #111;
+        font-weight: 600;
+    }
+
+    .cd-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    .cd-btn {
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid #e5e7eb;
+    }
+
+    .cd-btn-light {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .cd-btn-primary {
+        background: #111;
+        color: #fff;
+        border-color: #111;
+    }
+
+    .cd-btn-danger {
+        background: #dc2626;
+        color: #fff;
+        border-color: #dc2626;
+    }
+
+    .text-muted{
+        color : red;
+    }
+</style>

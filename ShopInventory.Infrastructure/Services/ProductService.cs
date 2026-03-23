@@ -97,6 +97,7 @@ namespace ShopInventory.Infrastructure.Services
             product.OldPrice = dto.OldPrice;
             product.CostPrice = dto.CostPrice;
             product.Category = dto.Category;
+            product.ImagePath = dto.ImagePath;
             product.Unit = dto.Unit;
             product.UpdatedAt = DateTime.UtcNow;
 
@@ -133,6 +134,19 @@ namespace ShopInventory.Infrastructure.Services
                 Page = page,
                 PageSize = pageSize
             };
+        }
+
+        public async Task<List<ProductDto>> FindDuplicatesAsync(string name, string sku)
+        {
+            var nameLower = name.Trim().ToLower();
+            var skuLower = sku.Trim().ToLower();
+
+            return await _db.Product
+                .Where(p => p.IsActive &&
+                    (p.Name.ToLower() == nameLower ||
+                     (!string.IsNullOrEmpty(skuLower) && p.Sku.ToLower() == skuLower)))
+                .Select(p => ToDto(p))
+                .ToListAsync();
         }
         private static string GenerateSku(string name) =>
             (name.Length >= 3 ? name[..3].ToUpper() : "SKU")

@@ -285,7 +285,7 @@
         allProducts = await ProductService.GetAllAsync();
         var draft = await BillService.GetBillByIdAsync(Id);
 
-        if (draft == null || !draft.IsDraft)
+        if (draft == null)
         {
             Navigation.NavigateTo("/billing");
             return;

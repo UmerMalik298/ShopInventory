@@ -109,15 +109,15 @@ namespace ShopInventory.Infrastructure.Services
             }
 
             // Reduce stock
-            foreach (var req in productRequests)
-            {
-                products[req.ProductId].Quantity -= req.Quantity;
-            }
+            //foreach (var req in productRequests)
+            //{
+            //    products[req.ProductId].Quantity -= req.Quantity;
+            //}
 
-            foreach (var req in variantRequests)
-            {
-                variants[req.VariantId].Quantity -= req.Quantity;
-            }
+            //foreach (var req in variantRequests)
+            //{
+            //    variants[req.VariantId].Quantity -= req.Quantity;
+            //}
 
             bill.Id = Guid.NewGuid();
             bill.BillNo = GenerateBillNo();
@@ -137,7 +137,120 @@ namespace ShopInventory.Infrastructure.Services
 
             return bill;
         }
+        public async Task DeductInventoryAsync(Guid billId)
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync();
 
+            var bill = await _db.Bill
+                .Include(b => b.Items)
+                .FirstOrDefaultAsync(b => b.Id == billId);
+
+            if (bill == null)
+                throw new InvalidOperationException("Bill not found.");
+
+            var productRequests = bill.Items
+                .Where(i => i.ProductId != Guid.Empty && !i.ProductVariantId.HasValue)
+                .GroupBy(i => i.ProductId)
+                .Select(g => new {
+                    ProductId = g.Key,
+                    Quantity = g.Sum(x => x.Quantity),
+                    Name = g.First().ProductName
+                }).ToList();
+
+            var variantRequests = bill.Items
+                .Where(i => i.ProductId != Guid.Empty && i.ProductVariantId.HasValue)
+                .GroupBy(i => i.ProductVariantId!.Value)
+                .Select(g => new {
+                    VariantId = g.Key,
+                    Quantity = g.Sum(x => x.Quantity),
+                    ProductName = g.First().ProductName,
+                    VariantName = g.First().VariantName
+                }).ToList();
+
+            var productIds = productRequests.Select(x => x.ProductId).ToList();
+            var variantIds = variantRequests.Select(x => x.VariantId).ToList();
+
+            var products = await _db.Product
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id);
+
+            var variants = await _db.ProductVariant
+                .Include(v => v.Product)
+                .Where(v => variantIds.Contains(v.Id))
+                .ToDictionaryAsync(v => v.Id);
+
+            // Validate first
+            foreach (var req in productRequests)
+            {
+                if (!products.TryGetValue(req.ProductId, out var product))
+                    throw new InvalidOperationException($"{req.Name} no longer exists.");
+                if (req.Quantity > product.Quantity)
+                    throw new InvalidOperationException(
+                        $"Only {product.Quantity} item(s) available for {product.Name}.");
+            }
+
+            foreach (var req in variantRequests)
+            {
+                if (!variants.TryGetValue(req.VariantId, out var variant))
+                    throw new InvalidOperationException(
+                        $"{req.ProductName} ({req.VariantName}) no longer exists.");
+                if (req.Quantity > variant.Quantity)
+                    throw new InvalidOperationException(
+                        $"Only {variant.Quantity} available for {variant.Product.Name} ({variant.Name}).");
+            }
+
+            // Deduct
+            foreach (var req in productRequests)
+                products[req.ProductId].Quantity -= req.Quantity;
+
+            foreach (var req in variantRequests)
+                variants[req.VariantId].Quantity -= req.Quantity;
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
+        public async Task<Bill> UpdateBillAsync(Guid billId, Bill updatedBill)
+        {
+            var existing = await _db.Bill
+                .Include(b => b.Items)
+                .FirstOrDefaultAsync(b => b.Id == billId);
+
+            if (existing == null)
+                throw new InvalidOperationException("Bill not found.");
+
+            existing.CustomerName = updatedBill.CustomerName;
+            existing.CustomerPhone = updatedBill.CustomerPhone;
+            existing.Notes = updatedBill.Notes;
+            existing.DiscountAmount = updatedBill.DiscountAmount;
+            existing.PaymentStatus = updatedBill.PaymentStatus;
+            existing.PaymentMethod = updatedBill.PaymentMethod;
+            existing.SubTotal = updatedBill.Items.Sum(i => i.UnitPrice * i.Quantity);
+            existing.TotalAmount = Math.Max(0, existing.SubTotal - existing.DiscountAmount);
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            // Replace all items
+            _db.BillItem.RemoveRange(existing.Items);
+
+            foreach (var item in updatedBill.Items)
+            {
+                existing.Items.Add(new BillItem
+                {
+                    Id = Guid.NewGuid(),
+                    BillId = billId,
+                    ProductId = item.ProductId,
+                    ProductVariantId = item.ProductVariantId,
+                    ProductName = item.ProductName,
+                    VariantName = item.VariantName,
+                    UnitPrice = item.UnitPrice,
+                    CostPrice = item.CostPrice,
+                    Quantity = item.Quantity
+                });
+            }
+
+            await _db.SaveChangesAsync();
+            return existing;
+        }
         public async Task UpdatePaymentStatusAsync(Guid billId, PaymentStatus status)
         {
             var bill = await _db.Bill.FindAsync(billId);

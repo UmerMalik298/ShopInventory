@@ -78,4 +78,10 @@
 		<Content Include="Resources\AppIcon\appicon.ico" CopyToOutputDirectory="Always" />
 	</ItemGroup>
 
+
+	<ItemGroup>
+		<None Update="SumatraPDF.exe">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 </Project>

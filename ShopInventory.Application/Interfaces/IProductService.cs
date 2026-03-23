@@ -13,7 +13,9 @@ namespace ShopInventory.Application.Interfaces
         Task UpdateAsync(ProductDto dto);
 
 
-        Task<PagedResult<ProductDto>> GetPagedAsync(string search, int page, int pageSize);  
+        Task<PagedResult<ProductDto>> GetPagedAsync(string search, int page, int pageSize);
+
+        Task<List<ProductDto>> FindDuplicatesAsync(string name, string sku);
 
     }
 }
