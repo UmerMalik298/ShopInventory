@@ -3,6 +3,7 @@
 @using ShopInventory.Domain.Entities.Sales
 @using ShopInventory.Domain.Entities.Billing
 @using ShopInventory.Application.Interfaces
+@using ShopInventory.Application.DTOs
 @using ShopInventory.App.Components.Common
 @inject IBillService BillService
 @inject NavigationManager Navigation
@@ -11,7 +12,7 @@
     <div class="page-header">
         <div class="header-left">
             <h2>Bills</h2>
-            <span class="total-count">@bills.Count total</span>
+            <span class="total-count">@_paged.TotalCount total</span>
         </div>
         <button class="btn-create" @onclick="CreateNewBill">
             <span class="icon">+</span> New Bill
@@ -23,52 +24,57 @@
         <div class="search-wrap">
             <span class="search-icon">&#x1F50D;</span>
             <input type="text" placeholder="Search by bill no or customer..."
-                   value="@searchTerm" @oninput="FilterBills" />
+                   value="@_search" @oninput="OnSearchInput" />
         </div>
         <div class="status-filters">
-            <button class="filter-pill @(activeFilter == "all" ? "active" : "")"
+            <button class="filter-pill @(_activeFilter == "all" ? "active" : "")"
                     @onclick="@(() => SetFilter("all"))">
                 All
             </button>
-            <button class="filter-pill unpaid @(activeFilter == "unpaid" ? "active" : "")"
+            <button class="filter-pill unpaid @(_activeFilter == "unpaid" ? "active" : "")"
                     @onclick="@(() => SetFilter("unpaid"))">
                 Unpaid
             </button>
-            <button class="filter-pill paid @(activeFilter == "paid" ? "active" : "")"
+            <button class="filter-pill paid @(_activeFilter == "paid" ? "active" : "")"
                     @onclick="@(() => SetFilter("paid"))">
                 Paid
             </button>
-            <button class="filter-pill partial @(activeFilter == "partial" ? "active" : "")"
+            <button class="filter-pill partial @(_activeFilter == "partial" ? "active" : "")"
                     @onclick="@(() => SetFilter("partial"))">
                 Partial
             </button>
-            <button class="filter-pill draft @(activeFilter == "draft" ? "active" : "")"
+            <button class="filter-pill draft @(_activeFilter == "draft" ? "active" : "")"
                     @onclick="@(() => SetFilter("draft"))">
                 Drafts
             </button>
         </div>
     </div>
 
-    @if (isLoading)
+    @if (_loading)
     {
         <div class="loading-state">
             <div class="spinner"></div>
             <p>Loading bills...</p>
         </div>
     }
-    else if (filteredBills.Count == 0)
+    else if (_paged.Items.Count == 0)
     {
         <div class="empty-state">
             <div class="empty-icon">&#x1F9FE;</div>
             <h3>No bills found</h3>
-            <p>Create your first bill to get started</p>
-            <button class="btn-create" @onclick="CreateNewBill">+ New Bill</button>
+            <p>@(string.IsNullOrWhiteSpace(_search) && _activeFilter == "all"
+                ? "Create your first bill to get started"
+                : "No bills match your search or filter")</p>
+            @if (string.IsNullOrWhiteSpace(_search) && _activeFilter == "all")
+            {
+                <button class="btn-create" @onclick="CreateNewBill">+ New Bill</button>
+            }
         </div>
     }
     else
     {
         <div class="bills-list">
-            @foreach (var bill in filteredBills)
+            @foreach (var bill in _paged.Items)
             {
                 <div class="bill-card @(bill.IsDraft ? "draft-card" : "")"
                      @onclick="@(() => OpenBill(bill.Id))">
@@ -95,16 +101,6 @@
                                 </span>
                             }
                             <span class="items-count">@bill.Items.Count item(s)</span>
-
-                            @* @if (bill.IsDraft)
-                            {
-                                <!-- Edit draft navigates to edit page -->
-                                <button class="btn-edit-bill" @onclick:stopPropagation="true"
-                                        @onclick="@(() => EditBill(bill.Id))"
-                                        title="Continue editing draft">
-                                    ✏️
-                                </button>
-                            } *@
                             <button class="btn-edit-bill" @onclick:stopPropagation="true"
                                     @onclick="@(() => EditBill(bill.Id))"
                                     title="@(bill.IsDraft ? "Continue editing draft" : "Edit bill")">
@@ -119,6 +115,25 @@
                 </div>
             }
         </div>
+
+        @if (_paged.TotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="pg-btn" disabled="@(!_paged.HasPrev)"
+                        @onclick="@(() => GoToPage(_page - 1))">&#8592;</button>
+
+                @for (int i = StartPage; i <= EndPage; i++)
+                {
+                    var pageNum = i;
+                    <button class="pg-btn @(pageNum == _page ? "pg-active" : "")"
+                            @onclick="@(() => GoToPage(pageNum))">@pageNum</button>
+                }
+
+                <button class="pg-btn" disabled="@(!_paged.HasNext)"
+                        @onclick="@(() => GoToPage(_page + 1))">&#8594;</button>
+                <span class="pg-info">@_paged.TotalCount bills</span>
+            </div>
+        }
     }
 </div>
 
@@ -132,66 +147,66 @@
                OnCancel="CancelDeleteBill" />
 
 @code {
-    private List<Bill> bills = new();
-    private List<Bill> filteredBills = new();
-    private string searchTerm = "";
-    private string activeFilter = "all";
-    private bool isLoading = true;
+    private PagedResult<Bill> _paged = new() { Items = new() };
+    private string _search       = "";
+    private string _activeFilter = "all";
+    private int    _page         = 1;
+    private const int PageSize   = 10;
+    private bool   _loading      = true;
+    private System.Timers.Timer? _debounce;
+
+    private int StartPage => Math.Max(1, _page - 2);
+    private int EndPage   => Math.Min(_paged.TotalPages, StartPage + 4);
+
     private bool showDeleteConfirm = false;
     private Bill? billToDelete;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
-        await LoadBills();
+        _loading = true;
+        StateHasChanged();
+        _paged = await BillService.GetPagedBillsAsync(_search, _activeFilter, _page, PageSize);
+        _loading = false;
+        StateHasChanged();
     }
 
-    private async Task LoadBills()
+    private void OnSearchInput(ChangeEventArgs e)
     {
-        isLoading = true;
-        bills = await BillService.GetAllBillsAsync();
-        ApplyFilter();
-        isLoading = false;
-    }
-
-    private void FilterBills(ChangeEventArgs e)
-    {
-        searchTerm = e.Value?.ToString() ?? "";
-        ApplyFilter();
-    }
-
-    private void SetFilter(string filter)
-    {
-        activeFilter = filter;
-        ApplyFilter();
-    }
-
-    private void ApplyFilter()
-    {
-        var query = bills.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-            query = query.Where(b =>
-                b.BillNo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                (b.CustomerName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
-
-        query = activeFilter switch
+        _search = e.Value?.ToString() ?? "";
+        _page = 1;
+        _debounce?.Stop();
+        _debounce?.Dispose();
+        _debounce = new System.Timers.Timer(300);
+        _debounce.Elapsed += async (_, _) =>
         {
-            "unpaid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Unpaid),
-            "paid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Paid),
-            "partial" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.PartiallyPaid),
-            "draft" => query.Where(b => b.IsDraft),
-            _ => query  // "all" — show everything
+            _debounce?.Dispose();
+            await InvokeAsync(LoadAsync);
         };
+        _debounce.AutoReset = false;
+        _debounce.Start();
+    }
 
-        filteredBills = query.ToList();
+    private async Task SetFilter(string filter)
+    {
+        _activeFilter = filter;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        _page = page;
+        await LoadAsync();
     }
 
     private string GetStatusClass(PaymentStatus status) => status switch
     {
-        PaymentStatus.Paid => "badge-paid",
-        PaymentStatus.Unpaid => "badge-unpaid",
+        PaymentStatus.Paid          => "badge-paid",
+        PaymentStatus.Unpaid        => "badge-unpaid",
         PaymentStatus.PartiallyPaid => "badge-partial",
-        _ => ""
+        _                           => ""
     };
 
     private void CreateNewBill() => Navigation.NavigateTo("/billing/create");
@@ -210,7 +225,7 @@
         if (billToDelete != null)
         {
             await BillService.DeleteBillAsync(billToDelete.Id);
-            await LoadBills();
+            await LoadAsync();
         }
         billToDelete = null;
     }
@@ -221,5 +236,3 @@
         billToDelete = null;
     }
 }
-
-

@@ -105,32 +105,53 @@ namespace ShopInventory.Infrastructure.Services
         }
 
 
-        public async Task<PagedResult<ProductDto>> GetPagedAsync(string search, int page, int pageSize)
+        // Replace your existing GetPagedAsync method with this.
+        // Everything else in ProductService.cs stays the same.
+
+        public async Task<PagedResult<ProductDto>> GetPagedAsync(
+            string? search, int page, int pageSize)
         {
-            var query = _db.Product.Where(p => p.IsActive);
+            // IQueryable — nothing hits the DB until ToListAsync/CountAsync
+            var query = _db.Product.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var q = search.Trim().ToLower();
+                var term = search.Trim().ToLower();
+
+                // EF Core translates .ToLower().Contains() → SQL LOWER(col) LIKE '%term%'
+                // The index on (Name, Sku, Category) makes this fast
                 query = query.Where(p =>
-                    p.Name.ToLower().Contains(q) ||
-                    p.Sku.ToLower().Contains(q) ||
-                    (p.Category != null && p.Category.ToLower().Contains(q)));
+                    p.Name.ToLower().Contains(term) ||
+                    p.Sku.ToLower().Contains(term) ||
+                    (p.Category != null && p.Category.ToLower().Contains(term)));
             }
 
-            var total = await query.CountAsync();
+            // Both run as SQL — only the COUNT(*) and 20 rows ever come back
+            var totalCount = await query.CountAsync();
 
             var items = await query
-                .OrderBy(p => p.Name)
+                .OrderBy(p => p.Name)               // stable order required for correct paging
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(p => ToDto(p))
+                .Select(p => new ProductDto         // project in SQL — unused columns never loaded
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Sku = p.Sku,
+                    Quantity = p.Quantity,
+                    SalePrice = p.SalePrice,
+                    CostPrice = p.CostPrice,
+                    Category = p.Category,
+                    Unit = p.Unit,
+                    ImagePath = p.ImagePath,
+                    OldPrice = p.OldPrice
+                })
                 .ToListAsync();
 
             return new PagedResult<ProductDto>
             {
                 Items = items,
-                TotalCount = total,
+                TotalCount = totalCount,
                 Page = page,
                 PageSize = pageSize
             };

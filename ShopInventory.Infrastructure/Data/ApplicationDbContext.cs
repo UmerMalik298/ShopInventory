@@ -57,6 +57,11 @@ namespace ShopInventory.Infrastructure.Data
             modelBuilder.Entity<BillItem>()
     .Ignore(i => i.TotalPrice)
     .Ignore(i => i.TotalProfit);
+
+
+            modelBuilder.Entity<Product>()
+            .HasIndex(p => new { p.Name, p.Sku, p.Category })
+            .HasDatabaseName("IX_Products_Search");
         }
 
     }

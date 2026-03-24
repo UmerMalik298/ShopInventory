@@ -297,6 +297,45 @@ namespace ShopInventory.Infrastructure.Services
             await _db.SaveChangesAsync();
             return bill;
         }
+
+        public async Task<PagedResult<Bill>> GetPagedBillsAsync(
+    string? search, string filter, int page, int pageSize)
+        {
+            var query = _db.Bill.Include(b => b.Items).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(b =>
+                    b.BillNo.ToLower().Contains(term) ||
+                    (b.CustomerName != null && b.CustomerName.ToLower().Contains(term)));
+            }
+
+            query = filter switch
+            {
+                "unpaid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Unpaid),
+                "paid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Paid),
+                "partial" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.PartiallyPaid),
+                "draft" => query.Where(b => b.IsDraft),
+                _ => query
+            };
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(b => b.BilledAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Bill>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
         public async Task UpdateDraftAsync(Guid draftId, Bill updatedBill)
         {
             var existing = await _db.Bill

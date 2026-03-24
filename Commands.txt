@@ -1,4 +1,4 @@
-Add-Migration AddPropertyInBill -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
+Add-Migration AddIndexInProducts -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
 Update-Database -Project ShopInventory.Infrastructure -StartupProject ShopInventory.API
 
 

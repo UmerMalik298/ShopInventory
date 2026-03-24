@@ -84,7 +84,7 @@
     // Page button range — max 5 centered around current
     private int StartPage => Math.Max(1, _page - 2);
     private int EndPage => Math.Min(_paged.TotalPages, StartPage + 4);
-
+     private Dictionary<string, string> _imageCache = new();
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
@@ -130,27 +130,41 @@
         await LoadAsync();
     }
 
-    private string GetImageSource(string? path)
+// Paste this into BOTH ProductList.razor and ManageStock.razor
+// Replace the existing GetImageSource method in each
+
+// Also add this field at the top of @code in ProductList (ManageStock already has it):
+// private Dictionary<string, string> _imageCache = new();
+
+private string GetImageSource(string? path)
+{
+    if (string.IsNullOrWhiteSpace(path)) return "";
+    if (!File.Exists(path)) return "";
+
+    // Return from cache — avoids re-reading the file on every render
+    if (_imageCache.TryGetValue(path, out var cached))
+        return cached;
+
+    try
     {
-        if (string.IsNullOrWhiteSpace(path)) return "";
-        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            return path;
-        if (File.Exists(path))
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var ms     = new MemoryStream();
+        stream.CopyTo(ms);
+
+        var mime = Path.GetExtension(path).ToLowerInvariant() switch
         {
-            var bytes = File.ReadAllBytes(path);
-            var ext = Path.GetExtension(path).ToLowerInvariant();
-            var mime = ext switch
-            {
-                ".png" => "image/png",
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".webp" => "image/webp",
-                ".gif" => "image/gif",
-                _ => "application/octet-stream"
-            };
-            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
-        }
-        return "";
+            ".png"            => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp"           => "image/webp",
+            ".gif"            => "image/gif",
+            _                 => "image/jpeg"   // safe fallback
+        };
+
+        var result = $"data:{mime};base64,{Convert.ToBase64String(ms.ToArray())}";
+        _imageCache[path] = result;
+        return result;
     }
+    catch { return ""; }
+}
 }
 

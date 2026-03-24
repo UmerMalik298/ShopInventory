@@ -1,15 +1,29 @@
 ﻿@using ShopInventory.Application.DTOs
+@using ShopInventory.Application.Interfaces
 @using Microsoft.Maui.Storage
+@inject IProductService ProductService
 
 <div class="tab-card">
     <h5 class="mb-4">Manage Stock</h5>
     <input class="form-control search-box mb-3"
            placeholder="Search by name or SKU..."
-           @bind="searchText"
-           @bind:event="oninput" />
-    @if (Products.Count == 0)
+           value="@_search"
+           @oninput="OnSearchInput" />
+
+    @if (_loading)
     {
-        <p class="empty-text">No products available.</p>
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading products...</p>
+        </div>
+    }
+    else if (_paged.Items.Count == 0)
+    {
+        <p class="empty-text">
+            @(string.IsNullOrWhiteSpace(_search)
+                ? "No products available."
+                : $"No results for \"{_search}\"")
+        </p>
     }
     else
     {
@@ -26,11 +40,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var product in Products
-                                    .Where(p => string.IsNullOrWhiteSpace(searchText) ||
-                                    p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                                    p.Sku.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                                    .ToList())
+                    @foreach (var product in _paged.Items)
                     {
                         <tr>
                             <td>
@@ -52,11 +62,11 @@
                             <td>
                                 <div class="stock-actions">
                                     <button class="btn btn-sm btn-success"
-                                            @onclick="() => OnIncreaseQuantity.InvokeAsync(product.Id)">
+                                            @onclick="() => AdjustStock(product.Id, +1)">
                                         +
                                     </button>
                                     <button class="btn btn-sm btn-danger"
-                                            @onclick="() => OnDecreaseQuantity.InvokeAsync(product.Id)">
+                                            @onclick="() => AdjustStock(product.Id, -1)">
                                         −
                                     </button>
                                 </div>
@@ -78,6 +88,28 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        @if (_paged.TotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="pg-btn" disabled="@(!_paged.HasPrev)"
+                        @onclick="@(() => GoToPage(_page - 1))">&#8592;</button>
+
+                @for (int i = StartPage; i <= EndPage; i++)
+                {
+                    var pageNum = i;
+                    <button class="pg-btn @(pageNum == _page ? "pg-active" : "")"
+                            @onclick="@(() => GoToPage(pageNum))">
+                        @pageNum
+                    </button>
+                }
+
+                <button class="pg-btn" disabled="@(!_paged.HasNext)"
+                        @onclick="@(() => GoToPage(_page + 1))">&#8594;</button>
+                <span class="pg-info">@_paged.TotalCount products</span>
+            </div>
+        }
     }
 </div>
 
@@ -226,12 +258,26 @@
 </style>
 
 @code {
+    // Keep these so the parent page doesn't break if it still passes them
     [Parameter] public List<ProductDto> Products { get; set; } = new();
     [Parameter] public EventCallback<Guid> OnIncreaseQuantity { get; set; }
     [Parameter] public EventCallback<Guid> OnDecreaseQuantity { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteProduct { get; set; }
     [Parameter] public EventCallback<ProductDto> OnEditProduct { get; set; }
 
+     private Dictionary<string, string> _imageCache = new();
+    // ── Pagination & search state ──────────────────────────────────────────
+    private PagedResult<ProductDto> _paged = new() { Items = new() };
+    private string _search = "";
+    private int _page = 1;
+    private const int PageSize = 10;
+    private bool _loading = false;
+    private System.Timers.Timer? _debounce;
+
+    private int StartPage => Math.Max(1, _page - 2);
+    private int EndPage   => Math.Min(_paged.TotalPages, StartPage + 4);
+
+    // ── Modal state ────────────────────────────────────────────────────────
     private bool showDeleteConfirm = false;
     private ProductDto? productToDelete;
     private bool showEditModal = false;
@@ -244,7 +290,89 @@
     private string editCategory = "";
     private string editUnit = "";
     private string editImagePath = "";
-    private string searchText = "";
+
+    // ── Image cache ────────────────────────────────────────────────────────
+  
+    // ══════════════════════════════════════════════════════════════════════
+    //  Lifecycle
+    // ══════════════════════════════════════════════════════════════════════
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    /// <summary>Call this from the parent page after any add/delete/edit so
+    /// the table refreshes without a full page reload.</summary>
+    public async Task RefreshAsync()
+    {
+        _page = 1;
+        await LoadAsync();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Data loading
+    // ══════════════════════════════════════════════════════════════════════
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        _paged = await ProductService.GetPagedAsync(_search, _page, PageSize);
+        _loading = false;
+        StateHasChanged();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Search  (300 ms debounce — same as ProductList)
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        _page = 1;
+
+        _debounce?.Stop();
+        _debounce?.Dispose();
+        _debounce = new System.Timers.Timer(300);
+        _debounce.Elapsed += async (_, _) =>
+        {
+            _debounce?.Dispose();
+            await InvokeAsync(LoadAsync);
+        };
+        _debounce.AutoReset = false;
+        _debounce.Start();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Stock adjustment  (calls existing parent callbacks for compat)
+    // ══════════════════════════════════════════════════════════════════════
+
+    private async Task AdjustStock(Guid id, int delta)
+    {
+        if (delta > 0)
+            await OnIncreaseQuantity.InvokeAsync(id);
+        else
+            await OnDecreaseQuantity.InvokeAsync(id);
+
+        // Optimistically update the visible row so qty changes instantly
+        var item = _paged.Items.FirstOrDefault(p => p.Id == id);
+        if (item != null)
+        {
+            item.Quantity = Math.Max(0, item.Quantity + delta);
+            StateHasChanged();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  Delete
+    // ══════════════════════════════════════════════════════════════════════
 
     private void AskDelete(ProductDto product)
     {
@@ -256,7 +384,11 @@
     {
         showDeleteConfirm = false;
         if (productToDelete != null)
+        {
             await OnDeleteProduct.InvokeAsync(productToDelete.Id);
+            // Reload to get accurate page after deletion
+            await LoadAsync();
+        }
         productToDelete = null;
     }
 
@@ -266,24 +398,28 @@
         productToDelete = null;
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  Edit
+    // ══════════════════════════════════════════════════════════════════════
+
     private void OpenEdit(ProductDto product)
     {
-        editingProduct = product;
-        editName = product.Name;
-        editSku = product.Sku;
-        editQuantity = product.Quantity;
-        editSalePrice = product.SalePrice;
-        editCostPrice = product.CostPrice;
-        editCategory = product.Category ?? "";
-        editUnit = product.Unit ?? "";
-        editImagePath = product.ImagePath ?? ""; // load existing image
-        showEditModal = true;
+        editingProduct  = product;
+        editName        = product.Name;
+        editSku         = product.Sku;
+        editQuantity    = product.Quantity;
+        editSalePrice   = product.SalePrice;
+        editCostPrice   = product.CostPrice;
+        editCategory    = product.Category ?? "";
+        editUnit        = product.Unit ?? "";
+        editImagePath   = product.ImagePath ?? "";
+        showEditModal   = true;
     }
 
     private void CloseEdit()
     {
-        showEditModal = false;
-        editingProduct = null;
+        showEditModal   = false;
+        editingProduct  = null;
     }
 
     private async Task PickEditImageAsync()
@@ -291,24 +427,20 @@
         var file = await FilePicker.Default.PickAsync(new PickOptions
         {
             PickerTitle = "Select product image",
-            FileTypes = FilePickerFileType.Images
+            FileTypes   = FilePickerFileType.Images
         });
 
         if (file is null) return;
 
-        var extension = Path.GetExtension(file.FileName);
-        var fileName = $"{Guid.NewGuid()}{extension}";
-        var localPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+        var extension        = Path.GetExtension(file.FileName);
+        var fileName         = $"{Guid.NewGuid()}{extension}";
+        var localPath        = Path.Combine(FileSystem.AppDataDirectory, fileName);
 
-        await using (var sourceStream = await file.OpenReadAsync())
-        await using (var destinationStream = File.Create(localPath))
-        {
-            await sourceStream.CopyToAsync(destinationStream);
-        }
+        await using (var src  = await file.OpenReadAsync())
+        await using (var dest = File.Create(localPath))
+            await src.CopyToAsync(dest);
 
-        // Clear cache for this path so it reads fresh
-        _imageCache.Remove(localPath);
-
+        _imageCache.Remove(localPath);  // bust cache for fresh read
         editImagePath = localPath;
         StateHasChanged();
     }
@@ -319,85 +451,75 @@
 
         var updated = new ProductDto
         {
-            Id = editingProduct.Id,
-            Name = editName.Trim(),
-            Sku = editSku.Trim(),
-            Quantity = editQuantity,
-            SalePrice = editSalePrice,
-            CostPrice = editCostPrice,
-            Category = editCategory.Trim(),
-            Unit = editUnit.Trim(),
-            ImagePath = editImagePath
+            Id         = editingProduct.Id,
+            Name       = editName.Trim(),
+            Sku        = editSku.Trim(),
+            Quantity   = editQuantity,
+            SalePrice  = editSalePrice,
+            CostPrice  = editCostPrice,
+            Category   = editCategory.Trim(),
+            Unit       = editUnit.Trim(),
+            ImagePath  = editImagePath
         };
 
         await OnEditProduct.InvokeAsync(updated);
 
-        // Update the local product in the list immediately
-        // so the image shows without waiting for parent refresh
-        var local = Products.FirstOrDefault(p => p.Id == updated.Id);
+        // Optimistically update the visible row
+        var local = _paged.Items.FirstOrDefault(p => p.Id == updated.Id);
         if (local != null)
         {
-            local.Name = updated.Name;
-            local.Sku = updated.Sku;
-            local.Quantity = updated.Quantity;
+            local.Name      = updated.Name;
+            local.Sku       = updated.Sku;
+            local.Quantity  = updated.Quantity;
             local.SalePrice = updated.SalePrice;
             local.CostPrice = updated.CostPrice;
-            local.Category = updated.Category;
-            local.Unit = updated.Unit;
-            local.ImagePath = updated.ImagePath; // ← this makes the image update instantly
+            local.Category  = updated.Category;
+            local.Unit      = updated.Unit;
+            local.ImagePath = updated.ImagePath;
         }
 
         CloseEdit();
         StateHasChanged();
     }
 
-    // Add this cache dictionary at the top of @code:
-private Dictionary<string, string> _imageCache = new();
+    // ══════════════════════════════════════════════════════════════════════
+    //  Image helper  (cached base64, same as before)
+    // ══════════════════════════════════════════════════════════════════════
+
+   // Paste this into BOTH ProductList.razor and ManageStock.razor
+// Replace the existing GetImageSource method in each
+
+// Also add this field at the top of @code in ProductList (ManageStock already has it):
+// private Dictionary<string, string> _imageCache = new();
 
 private string GetImageSource(string? path)
 {
     if (string.IsNullOrWhiteSpace(path)) return "";
-
-    // Return URL images directly — no file reading needed
-    if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        return path;
-
     if (!File.Exists(path)) return "";
 
-    // Return cached result if already read
+    // Return from cache — avoids re-reading the file on every render
     if (_imageCache.TryGetValue(path, out var cached))
         return cached;
 
     try
     {
-        using var stream = new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.ReadWrite);
-
-        using var ms = new MemoryStream();
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var ms     = new MemoryStream();
         stream.CopyTo(ms);
-        var bytes = ms.ToArray();
 
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        var mime = ext switch
+        var mime = Path.GetExtension(path).ToLowerInvariant() switch
         {
-            ".png"  => "image/png",
+            ".png"            => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",
-            ".webp" => "image/webp",
-            ".gif"  => "image/gif",
-            _       => "application/octet-stream"
+            ".webp"           => "image/webp",
+            ".gif"            => "image/gif",
+            _                 => "image/jpeg"   // safe fallback
         };
 
-        var result = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
-        _imageCache[path] = result; // cache it
+        var result = $"data:{mime};base64,{Convert.ToBase64String(ms.ToArray())}";
+        _imageCache[path] = result;
         return result;
     }
-    catch
-    {
-        return "";
-    }
+    catch { return ""; }
 }
 }
