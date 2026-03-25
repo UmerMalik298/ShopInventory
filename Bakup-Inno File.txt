@@ -1,0 +1,28 @@
+[Setup]
+AppName=Sheer Rabbani Autos
+AppVersion=1.0
+AppPublisher=Sheer Rabbani Autos
+DefaultDirName={localappdata}\SheerRabbaniAutos
+DefaultGroupName=Sheer Rabbani Autos
+OutputDir=Installer
+OutputBaseFilename=SheerRabbaniAutos_Setup
+SetupIconFile=appicon.ico
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+PrivilegesRequired=lowest
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Files]
+Source: "publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "WindowsAppRuntimeInstall-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+
+[Icons]
+Name: "{group}\Sheer Rabbani Autos"; Filename: "{app}\ShopInventory.App.exe"
+Name: "{autodesktop}\Sheer Rabbani Autos"; Filename: "{app}\ShopInventory.App.exe"
+
+[Run]
+Filename: "{tmp}\WindowsAppRuntimeInstall-x64.exe"; Parameters: "--quiet"; StatusMsg: "Installing required components..."; Flags: waituntilterminated
+Filename: "{app}\ShopInventory.App.exe"; Description: "Launch Sheer Rabbani Autos"; Flags: nowait postinstall skipifsilent
