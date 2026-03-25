@@ -1,3 +1,4 @@
+
 @page "/billing/{Id:guid}"
 @using ShopInventory.Domain.Entities.Enums
 @using ShopInventory.Domain.Entities.Sales
@@ -317,6 +318,12 @@
     }
     private async Task PrintBill()
     {
+
+
+         //await JS.InvokeVoidAsync("window.print");
+
+
+
         if (bill == null) return;
         try
         {
@@ -442,3 +449,8 @@
 
     private void GoBack() => Navigation.NavigateTo("/billing");
 }
+
+
+
+
+
