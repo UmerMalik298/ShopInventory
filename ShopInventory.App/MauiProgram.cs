@@ -23,6 +23,11 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
 
+
+        #if DEBUG
+        builder.Services.AddBlazorWebViewDeveloperTools();
+        #endif
+
         builder.Services.AddHttpClient("ApiClient", client =>
         {
             client.BaseAddress = new Uri("https://localhost:7281/");
@@ -35,9 +40,10 @@ public static class MauiProgram
         System.Diagnostics.Debug.WriteLine("DB PATH = " + dbPath);
 
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlite($"Filename={dbPath}"));
+            options.UseSqlite($"Filename={dbPath}"),
+              ServiceLifetime.Transient);
 
-        builder.Services.AddScoped<IDbContext>(sp =>
+        builder.Services.AddTransient<IDbContext>(sp =>
             sp.GetRequiredService<ApplicationDbContext>());
 
         builder.Services.AddInfrastructure(builder.Configuration);

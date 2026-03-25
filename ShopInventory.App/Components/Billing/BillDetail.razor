@@ -1,3 +1,16 @@
+	
+
+
+
+
+
+
+
+
+
+
+
+
 @page "/billing/{Id:guid}"
 @using ShopInventory.Domain.Entities.Enums
 @using ShopInventory.Domain.Entities.Sales
@@ -317,24 +330,30 @@
     }
     private async Task PrintBill()
     {
-        if (bill == null) return;
-        try
-        {
-            var pdfBytes = BillPdfService.GeneratePdf(bill);
-            var tempPath = Path.Combine(Path.GetTempPath(), $"bill_{bill.BillNo}.pdf");
-            await File.WriteAllBytesAsync(tempPath, pdfBytes);
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = tempPath,
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            deductErrorMessage = ex.Message;
-            showDeductErrorDialog = true;
-        }
+
+         await JS.InvokeVoidAsync("window.print");
+
+
+
+        // if (bill == null) return;
+        // try
+        // {
+        //     var pdfBytes = BillPdfService.GeneratePdf(bill);
+        //     var tempPath = Path.Combine(Path.GetTempPath(), $"bill_{bill.BillNo}.pdf");
+        //     await File.WriteAllBytesAsync(tempPath, pdfBytes);
+
+        //     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        //     {
+        //         FileName = tempPath,
+        //         UseShellExecute = true
+        //     });
+        // }
+        // catch (Exception ex)
+        // {
+        //     deductErrorMessage = ex.Message;
+        //     showDeductErrorDialog = true;
+        // }
     }
 
     private bool isSharing = false;
@@ -442,3 +461,8 @@
 
     private void GoBack() => Navigation.NavigateTo("/billing");
 }
+
+
+
+
+

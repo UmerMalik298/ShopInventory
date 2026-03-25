@@ -334,44 +334,59 @@
     animation: spin .7s linear infinite;
 }
 
-@@keyframes spin {
+@keyframes spin {
     to {
         transform: rotate(360deg);
     }
 }
 
-/* Print styles */
-@@media print {
-    .no-print {
-        display: none !important;
+@media print {
+    /* Hide everything */
+    body * {
+        visibility: hidden;
     }
 
-    .bill-detail-page {
+    /* Show only the receipt */
+    #printArea,
+    #printArea * {
+        visibility: visible;
+    }
+
+    #printArea {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
         padding: 0;
     }
 
     .receipt {
-        border: none;
-        padding: 0;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 1rem !important;
+        max-width: 100% !important;
+        box-shadow: none !important;
     }
 
     .receipt-wrap {
         justify-content: flex-start;
     }
-}
-@media print {
-    .nav-shell {
+
+    /* Hide nav and layout chrome */
+    .nav-shell,
+    .no-print,
+    .top-bar {
         display: none !important;
+    }
+
+    .bill-detail-page {
+        padding: 0;
+        max-width: 100%;
     }
 
     .main-content {
         margin: 0 !important;
         padding: 0 !important;
-    }
-}
-@media print {
-    /* Hide everything except the bill content */
-    .bill-toolbar {
-        display: none !important;
     }
 }
