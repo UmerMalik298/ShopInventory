@@ -142,3 +142,191 @@
     color: #94a3b8;
     margin-left: 6px;
 }
+
+
+/* ── Filter Bar ───────────────────────────────────────────── */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 12px 0 8px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    margin-bottom: 12px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 130px;
+}
+
+.filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #6b7280);
+}
+
+.filter-select,
+.filter-input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-primary, #111827);
+    background: var(--input-bg, #fff);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+    .filter-select:focus,
+    .filter-input:focus {
+        border-color: var(--primary, #6366f1);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+
+.filter-input {
+    width: 100px;
+}
+
+.filter-reset-btn {
+    align-self: flex-end;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--danger, #ef4444);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--danger, #ef4444);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+    .filter-reset-btn:hover {
+        background: var(--danger, #ef4444);
+        color: #fff;
+    }
+/* ── Filter Bar ───────────────────────────────────────────── */
+.filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+    /* Search takes full width on its own row */
+    .filter-bar .search-box,
+    .filter-bar .form-control {
+        width: 100%;
+    }
+
+/* Filter controls sit in a horizontal row below search */
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+}
+
+.filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+}
+
+.filter-select,
+.filter-input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #111827;
+    background: #f9fafb;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+}
+
+    .filter-select:focus,
+    .filter-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        background: #fff;
+    }
+
+.filter-input {
+    width: 110px;
+}
+
+.filter-reset-btn {
+    align-self: flex-end;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    background: transparent;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+    .filter-reset-btn:hover {
+        background: #ef4444;
+        color: #fff;
+    }
+
+/* ── Active Filter Pills ──────────────────────────────────── */
+.filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 10px;
+    background: var(--primary-light, #eef2ff);
+    color: var(--primary, #6366f1);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+    .filter-pill button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--primary, #6366f1);
+        font-size: 14px;
+        line-height: 1;
+        padding: 0;
+        margin-left: 2px;
+        opacity: 0.7;
+        transition: opacity 0.1s;
+    }
+
+        .filter-pill button:hover {
+            opacity: 1;
+        }

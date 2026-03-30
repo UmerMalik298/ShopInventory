@@ -191,3 +191,187 @@
     .cd-close:hover {
         background: #e2e8f0;
     }
+
+
+
+
+.product-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.no-image-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    border: 1.5px dashed #d1d5db;
+    background: #f9fafb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #9ca3af;
+}
+
+.edit-image-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.edit-image-preview {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+}
+
+.edit-no-image {
+    width: 90px;
+    height: 90px;
+    border-radius: 10px;
+    border: 2px dashed #d1d5db;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 26px;
+    color: #9ca3af;
+}
+
+    .edit-no-image p {
+        font-size: 11px;
+        color: #9ca3af;
+        margin: 0;
+    }
+
+
+
+/* ── Filter Bar ───────────────────────────────────────────── */
+.filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+    /* Search takes full width on its own row */
+    .filter-bar .search-box,
+    .filter-bar .form-control {
+        width: 100%;
+    }
+
+/* Filter controls sit in a horizontal row below search */
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+}
+
+.filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+}
+
+.filter-select,
+.filter-input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #111827;
+    background: #f9fafb;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+}
+
+    .filter-select:focus,
+    .filter-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        background: #fff;
+    }
+
+.filter-input {
+    width: 110px;
+}
+
+.filter-reset-btn {
+    align-self: flex-end;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    background: transparent;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+    .filter-reset-btn:hover {
+        background: #ef4444;
+        color: #fff;
+    }
+
+/* ── Active Filter Pills ──────────────────────────────────── */
+.filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 10px;
+    background: var(--primary-light, #eef2ff);
+    color: var(--primary, #6366f1);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+    .filter-pill button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--primary, #6366f1);
+        font-size: 14px;
+        line-height: 1;
+        padding: 0;
+        margin-left: 2px;
+        opacity: 0.7;
+        transition: opacity 0.1s;
+    }
+
+        .filter-pill button:hover {
+            opacity: 1;
+        }
