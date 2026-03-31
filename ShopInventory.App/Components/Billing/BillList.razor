@@ -1,6 +1,5 @@
 ﻿@page "/billing"
 @using ShopInventory.Domain.Entities.Enums
-@using ShopInventory.Domain.Entities.Sales
 @using ShopInventory.Domain.Entities.Billing
 @using ShopInventory.Application.Interfaces
 @using ShopInventory.Application.DTOs
@@ -27,26 +26,11 @@
                    value="@_search" @oninput="OnSearchInput" />
         </div>
         <div class="status-filters">
-            <button class="filter-pill @(_activeFilter == "all" ? "active" : "")"
-                    @onclick="@(() => SetFilter("all"))">
-                All
-            </button>
-            <button class="filter-pill unpaid @(_activeFilter == "unpaid" ? "active" : "")"
-                    @onclick="@(() => SetFilter("unpaid"))">
-                Unpaid
-            </button>
-            <button class="filter-pill paid @(_activeFilter == "paid" ? "active" : "")"
-                    @onclick="@(() => SetFilter("paid"))">
-                Paid
-            </button>
-            <button class="filter-pill partial @(_activeFilter == "partial" ? "active" : "")"
-                    @onclick="@(() => SetFilter("partial"))">
-                Partial
-            </button>
-            <button class="filter-pill draft @(_activeFilter == "draft" ? "active" : "")"
-                    @onclick="@(() => SetFilter("draft"))">
-                Drafts
-            </button>
+            <button class="filter-pill @(_activeFilter == "all" ? "active" : "")" @onclick="@(() => SetFilter("all"))">All</button>
+            <button class="filter-pill unpaid @(_activeFilter == "unpaid" ? "active" : "")" @onclick="@(() => SetFilter("unpaid"))">Unpaid</button>
+            <button class="filter-pill paid   @(_activeFilter == "paid" ? "active" : "")" @onclick="@(() => SetFilter("paid"))">Paid</button>
+            <button class="filter-pill partial @(_activeFilter == "partial" ? "active" : "")" @onclick="@(() => SetFilter("partial"))">Partial</button>
+            <button class="filter-pill draft  @(_activeFilter == "draft" ? "active" : "")" @onclick="@(() => SetFilter("draft"))">Drafts</button>
         </div>
     </div>
 
@@ -62,10 +46,12 @@
         <div class="empty-state">
             <div class="empty-icon">&#x1F9FE;</div>
             <h3>No bills found</h3>
-            <p>@(string.IsNullOrWhiteSpace(_search) && _activeFilter == "all"
-                ? "Create your first bill to get started"
-                : "No bills match your search or filter")</p>
-            @if (string.IsNullOrWhiteSpace(_search) && _activeFilter == "all")
+            <p>
+                @(string.IsNullOrWhiteSpace(_search) && _activeFilter == "all"
+                            ? "Create your first bill to get started"
+                            : "No bills match your search or filter")
+        </p>
+        @if (string.IsNullOrWhiteSpace(_search) && _activeFilter == "all")
             {
                 <button class="btn-create" @onclick="CreateNewBill">+ New Bill</button>
             }
@@ -90,7 +76,9 @@
                             <span class="customer-name">
                                 @(string.IsNullOrEmpty(bill.CustomerName) ? "Walk-in Customer" : bill.CustomerName)
                             </span>
-                            <span class="bill-date">@bill.BilledAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</span>
+                            <span class="bill-date">
+                                @bill.BilledAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")
+                            </span>
                         </div>
                         <div class="bill-right">
                             <span class="bill-amount">Rs. @bill.TotalAmount.ToString("N0")</span>
@@ -100,13 +88,15 @@
                                     @bill.PaymentStatus
                                 </span>
                             }
-                            <span class="items-count">@bill.Items.Count item(s)</span>
-                            <button class="btn-edit-bill" @onclick:stopPropagation="true"
+                            <span class="items-count">@bill.ItemCount item(s)</span>
+                            <button class="btn-edit-bill"
+                                    @onclick:stopPropagation="true"
                                     @onclick="@(() => EditBill(bill.Id))"
                                     title="@(bill.IsDraft ? "Continue editing draft" : "Edit bill")">
                                 ✏️
                             </button>
-                            <button class="btn-delete-bill" @onclick:stopPropagation="true"
+                            <button class="btn-delete-bill"
+                                    @onclick:stopPropagation="true"
                                     @onclick="@(() => AskDeleteBill(bill))">
                                 ✕
                             </button>
@@ -120,26 +110,30 @@
         {
             <div class="pagination-bar">
                 <button class="pg-btn" disabled="@(!_paged.HasPrev)"
-                        @onclick="@(() => GoToPage(_page - 1))">&#8592;</button>
-
+                        @onclick="@(() => GoToPage(_page - 1))">
+                    &#8592;
+                </button>
                 @for (int i = StartPage; i <= EndPage; i++)
                 {
                     var pageNum = i;
                     <button class="pg-btn @(pageNum == _page ? "pg-active" : "")"
-                            @onclick="@(() => GoToPage(pageNum))">@pageNum</button>
+                            @onclick="@(() => GoToPage(pageNum))">
+                        @pageNum
+                    </button>
                 }
-
                 <button class="pg-btn" disabled="@(!_paged.HasNext)"
-                        @onclick="@(() => GoToPage(_page + 1))">&#8594;</button>
+                        @onclick="@(() => GoToPage(_page + 1))">
+                    &#8594;
+                </button>
                 <span class="pg-info">@_paged.TotalCount bills</span>
             </div>
         }
     }
 </div>
 
-<ConfirmDialog IsOpen="showDeleteConfirm"
+<ConfirmDialog IsOpen="_showDeleteConfirm"
                Title="Delete Bill"
-               Message="@($"Are you sure you want to delete bill \"{billToDelete?.BillNo}\"? This cannot be undone.")"
+               Message="@($"Are you sure you want to delete bill \"{_billToDelete?.BillNo}\"? This cannot be undone.")"
                ConfirmText="Delete"
                CancelText="Cancel"
                IsDanger="true"
@@ -147,19 +141,24 @@
                OnCancel="CancelDeleteBill" />
 
 @code {
-    private PagedResult<Bill> _paged = new() { Items = new() };
-    private string _search       = "";
+    // ── FIX: use a lightweight DTO instead of the full Bill entity ─────────
+    // The full Bill entity eager-loads BillItems — unnecessary for a list view.
+    // BillListDto only contains what the list UI actually needs.
+    private PagedResult<BillListDto> _paged = new() { Items = new() };
+
+    private string _search = "";
     private string _activeFilter = "all";
-    private int    _page         = 1;
-    private const int PageSize   = 10;
-    private bool   _loading      = true;
+    private int _page = 1;
+    private const int PageSize = 10;
+    private bool _loading = true;
+
     private System.Timers.Timer? _debounce;
 
     private int StartPage => Math.Max(1, _page - 2);
-    private int EndPage   => Math.Min(_paged.TotalPages, StartPage + 4);
+    private int EndPage => Math.Min(_paged.TotalPages, StartPage + 4);
 
-    private bool showDeleteConfirm = false;
-    private Bill? billToDelete;
+    private bool _showDeleteConfirm = false;
+    private BillListDto? _billToDelete = null;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -188,51 +187,41 @@
         _debounce.Start();
     }
 
-    private async Task SetFilter(string filter)
-    {
-        _activeFilter = filter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task GoToPage(int page)
-    {
-        _page = page;
-        await LoadAsync();
-    }
+    private async Task SetFilter(string filter) { _activeFilter = filter; _page = 1; await LoadAsync(); }
+    private async Task GoToPage(int page) { _page = page; await LoadAsync(); }
 
     private string GetStatusClass(PaymentStatus status) => status switch
     {
-        PaymentStatus.Paid          => "badge-paid",
-        PaymentStatus.Unpaid        => "badge-unpaid",
+        PaymentStatus.Paid => "badge-paid",
+        PaymentStatus.Unpaid => "badge-unpaid",
         PaymentStatus.PartiallyPaid => "badge-partial",
-        _                           => ""
+        _ => ""
     };
 
     private void CreateNewBill() => Navigation.NavigateTo("/billing/create");
     private void OpenBill(Guid id) => Navigation.NavigateTo($"/billing/{id}");
     private void EditBill(Guid id) => Navigation.NavigateTo($"/billing/edit/{id}");
 
-    private void AskDeleteBill(Bill bill)
+    private void AskDeleteBill(BillListDto bill)
     {
-        billToDelete = bill;
-        showDeleteConfirm = true;
+        _billToDelete = bill;
+        _showDeleteConfirm = true;
     }
 
     private async Task ConfirmDeleteBill()
     {
-        showDeleteConfirm = false;
-        if (billToDelete != null)
+        _showDeleteConfirm = false;
+        if (_billToDelete != null)
         {
-            await BillService.DeleteBillAsync(billToDelete.Id);
+            await BillService.DeleteBillAsync(_billToDelete.Id);
             await LoadAsync();
         }
-        billToDelete = null;
+        _billToDelete = null;
     }
 
     private void CancelDeleteBill()
     {
-        showDeleteConfirm = false;
-        billToDelete = null;
+        _showDeleteConfirm = false;
+        _billToDelete = null;
     }
 }

@@ -7,22 +7,23 @@
 
 <div class="products-shell">
     <div class="tabs-header">
-        <button class="tab-btn @(activeTab == "list" ? "active" : "")" @onclick='() => SetTab("list")'>
+        <button class="tab-btn @(activeTab == "list" ? "active" : "")"
+                @onclick='() => SetTab("list")'>
             All Products
         </button>
-        <button class="tab-btn @(activeTab == "add" ? "active" : "")" @onclick='() => SetTab("add")'>
+        <button class="tab-btn @(activeTab == "add" ? "active" : "")"
+                @onclick='() => SetTab("add")'>
             Add Product
         </button>
-        <button class="tab-btn @(activeTab == "manage" ? "active" : "")" @onclick='() => SetTab("manage")'>
+        <button class="tab-btn @(activeTab == "manage" ? "active" : "")"
+                @onclick='() => SetTab("manage")'>
             Manage Stock
         </button>
     </div>
 
     @if (activeTab == "list")
     {
-        <ProductListSection Products="_products"
-                            OnSearch="SearchProductsAsync"
-                            OnReset="LoadProductsAsync" />
+        <ProductListSection @ref="_listSection" />
     }
 
     @if (activeTab == "add")
@@ -32,7 +33,7 @@
 
     @if (activeTab == "manage")
     {
-        <ManageStockSection Products="_products"
+        <ManageStockSection @ref="_manageSection"
                             OnIncreaseQuantity="IncreaseQuantityAsync"
                             OnDecreaseQuantity="DecreaseQuantityAsync"
                             OnDeleteProduct="DeleteProductAsync"
@@ -42,59 +43,50 @@
 
 @code {
     private string activeTab = "list";
-    private List<ProductDto> _products = new();
 
-    protected override async Task OnInitializedAsync()
+    // References so we can call RefreshAsync() on the child after mutations
+    private ProductListSection? _listSection = null;
+    private ManageStockSection? _manageSection = null;
+
+    // ── Tab switching ──────────────────────────────────────────────────────
+    // Refresh the active child whenever the user switches to it,
+    // so it always shows up-to-date data without a full page reload.
+    private async Task SetTab(string tab)
     {
-        await LoadProductsAsync();
+        activeTab = tab;
+        StateHasChanged();  // re-render first so the component mounts
+
+        await Task.Yield();  // let Blazor finish rendering before calling RefreshAsync
+
+        if (tab == "list" && _listSection != null) await _listSection.RefreshAsync();
+        if (tab == "manage" && _manageSection != null) await _manageSection.RefreshAsync();
     }
 
-    private void SetTab(string tab) => activeTab = tab;
-
-    private async Task LoadProductsAsync()
-    {
-        _products = await ProductService.GetAllAsync();
-    }
-
-    private async Task SearchProductsAsync(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            await LoadProductsAsync();
-            return;
-        }
-
-        _products = await ProductService.SearchAsync(text);
-    }
-
+    // ── Add product ────────────────────────────────────────────────────────
+    // After adding, switch to list tab — SetTab will trigger a refresh there
     private async Task AddProductAsync(CreateProductDto model)
     {
         await ProductService.AddAsync(model);
-        await LoadProductsAsync();
-        activeTab = "list";
+        await SetTab("list");
     }
 
+    // ── Stock adjustments ──────────────────────────────────────────────────
+    // ManageStockSection does an optimistic local update instantly,
+    // then calls these to persist to DB. No full reload needed.
     private async Task IncreaseQuantityAsync(Guid id)
-    {
-        await ProductService.UpdateQuantityAsync(id, 1);
-        await LoadProductsAsync();
-    }
+        => await ProductService.UpdateQuantityAsync(id, +1);
 
     private async Task DecreaseQuantityAsync(Guid id)
-    {
-        await ProductService.UpdateQuantityAsync(id, -1);
-        await LoadProductsAsync();
-    }
+        => await ProductService.UpdateQuantityAsync(id, -1);
 
+    // ── Delete ─────────────────────────────────────────────────────────────
+    // ManageStockSection calls LoadAsync() itself after delete,
+    // so we just persist here.
     private async Task DeleteProductAsync(Guid id)
-    {
-        await ProductService.DeleteAsync(id);
-        await LoadProductsAsync();
-    }
-    private async Task EditProductAsync(ProductDto dto)
-    {
-        await ProductService.UpdateAsync(dto);
-        await LoadProductsAsync();
-    }
+        => await ProductService.DeleteAsync(id);
 
+    // ── Edit ───────────────────────────────────────────────────────────────
+    // Same pattern — child does optimistic update, we just persist.
+    private async Task EditProductAsync(ProductDto dto)
+        => await ProductService.UpdateAsync(dto);
 }

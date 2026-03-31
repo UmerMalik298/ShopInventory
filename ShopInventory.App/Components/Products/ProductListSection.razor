@@ -162,39 +162,44 @@
 </div>
 
 @code {
-    [Parameter] public List<ProductDto> Products { get; set; } = new();
-    [Parameter] public EventCallback<string> OnSearch { get; set; }
-    [Parameter] public EventCallback OnReset { get; set; }
     [Parameter] public EventCallback OnRefreshNeeded { get; set; }
 
-    private PagedResult<ProductDto> _paged = new() { Items = new(), PageSize = 20, Page = 1 };
+    // ── State ─────────────────────────────────────────────────────────────
+    private PagedResult<ProductDto> _paged = new() { Items = new(), PageSize = 16, Page = 1 };
     private string _search = "";
     private int _page = 1;
-    private const int PageSize = 20;
+    private const int PageSize = 16;
     private bool _loading = false;
-    private System.Timers.Timer? _debounce;
-    private Dictionary<string, string> _imageCache = new();
 
-    // Filter state
     private string _categoryFilter = "";
     private decimal? _minPrice = null;
     private decimal? _maxPrice = null;
     private string _stockFilter = "";
     private string _sortBy = "";
+
     private List<string> _categories = new();
 
+    // Image cache — kept in memory, never reloaded for same path
+    private readonly Dictionary<string, string> _imageCache = new();
+
+    // Debounce timer for search
+    private System.Timers.Timer? _debounce;
+
+    // ── Computed ───────────────────────────────────────────────────────────
     private bool HasActiveFilters =>
         !string.IsNullOrWhiteSpace(_categoryFilter) ||
-        _minPrice.HasValue ||
-        _maxPrice.HasValue ||
+        _minPrice.HasValue || _maxPrice.HasValue ||
         !string.IsNullOrWhiteSpace(_stockFilter) ||
         !string.IsNullOrWhiteSpace(_sortBy);
 
     private int StartPage => Math.Max(1, _page - 2);
     private int EndPage => Math.Min(_paged.TotalPages, StartPage + 4);
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
+        // Load categories once with a lightweight distinct query
+        // Then load the first page — two small DB hits, not one huge one
         await LoadCategoriesAsync();
         await LoadAsync();
     }
@@ -206,92 +211,57 @@
         await LoadAsync();
     }
 
+    // ── Data loading ───────────────────────────────────────────────────────
+    // FIX: only fetch the distinct categories — one tiny query, no full scan
     private async Task LoadCategoriesAsync()
     {
-        var all = await ProductService.GetPagedAsync("", 1, 9999);
-        _categories = all.Items
-            .Select(p => p.Category)
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .Distinct()
-            .OrderBy(c => c)
-            .Select(c => c!)
-            .ToList();
+        _categories = await ProductService.GetDistinctCategoriesAsync();
     }
 
+    // FIX: pass ALL filter/sort/page params to the service so SQLite does
+    //      the heavy lifting. We only receive the 20 rows we actually need.
     private async Task LoadAsync()
     {
         _loading = true;
         StateHasChanged();
 
-        var all = await ProductService.GetPagedAsync("", 1, 9999);
-        var filtered = all.Items.AsEnumerable();
+        _paged = await ProductService.GetPagedAsync(
+            search: _search,
+            page: _page,
+            pageSize: PageSize,
+            category: _categoryFilter,
+            minPrice: _minPrice,
+            maxPrice: _maxPrice,
+            stockFilter: _stockFilter,
+            sortBy: _sortBy
+        );
 
-        // Search
-        if (!string.IsNullOrWhiteSpace(_search))
+        // Clamp page if filters reduced total pages
+        if (_page > _paged.TotalPages && _paged.TotalPages > 0)
         {
-            var q = _search.ToLowerInvariant();
-            filtered = filtered.Where(p =>
-                p.Name.ToLowerInvariant().Contains(q) ||
-                (p.Sku != null && p.Sku.ToLowerInvariant().Contains(q)) ||
-                (p.Category != null && p.Category.ToLowerInvariant().Contains(q)));
+            _page = _paged.TotalPages;
+            _paged = await ProductService.GetPagedAsync(
+                search: _search,
+                page: _page,
+                pageSize: PageSize,
+                category: _categoryFilter,
+                minPrice: _minPrice,
+                maxPrice: _maxPrice,
+                stockFilter: _stockFilter,
+                sortBy: _sortBy
+            );
         }
-
-        // Category
-        if (!string.IsNullOrWhiteSpace(_categoryFilter))
-            filtered = filtered.Where(p => p.Category == _categoryFilter);
-
-        // Price range
-        if (_minPrice.HasValue)
-            filtered = filtered.Where(p => p.SalePrice >= _minPrice.Value);
-        if (_maxPrice.HasValue)
-            filtered = filtered.Where(p => p.SalePrice <= _maxPrice.Value);
-
-        // Stock
-        if (_stockFilter == "instock")
-            filtered = filtered.Where(p => p.Quantity > 10);
-        else if (_stockFilter == "lowstock")
-            filtered = filtered.Where(p => p.Quantity > 0 && p.Quantity <= 10);
-        else if (_stockFilter == "outofstock")
-            filtered = filtered.Where(p => p.Quantity <= 0);
-
-        // Sort
-        if (_sortBy == "price_asc")
-            filtered = filtered.OrderBy(p => p.SalePrice);
-        else if (_sortBy == "price_desc")
-            filtered = filtered.OrderByDescending(p => p.SalePrice);
-        else if (_sortBy == "qty_asc")
-            filtered = filtered.OrderBy(p => p.Quantity);
-        else if (_sortBy == "qty_desc")
-            filtered = filtered.OrderByDescending(p => p.Quantity);
-        else if (_sortBy == "name_asc")
-            filtered = filtered.OrderBy(p => p.Name);
-        else if (_sortBy == "name_desc")
-            filtered = filtered.OrderByDescending(p => p.Name);
-
-        var list = filtered.ToList();
-        var totalCount = list.Count;
-        var totalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
-
-        if (_page > totalPages && totalPages > 0)
-            _page = totalPages;
-
-        _paged = new PagedResult<ProductDto>
-        {
-            Items = list.Skip((_page - 1) * PageSize).Take(PageSize).ToList(),
-            TotalCount = totalCount,
-            Page = _page,
-            PageSize = PageSize
-        };
 
         _loading = false;
         StateHasChanged();
     }
 
+    // ── Event handlers ─────────────────────────────────────────────────────
     private void OnSearchInput(ChangeEventArgs e)
     {
         _search = e.Value?.ToString() ?? "";
         _page = 1;
-        TriggerDebounce();
+        TriggerDebounce();   // wait 300 ms before hitting DB
     }
 
     private async Task OnCategoryChange(ChangeEventArgs e)
@@ -324,11 +294,7 @@
         await ApplyFilters();
     }
 
-    private async Task ApplyFilters()
-    {
-        _page = 1;
-        await LoadAsync();
-    }
+    private async Task ApplyFilters() { _page = 1; await LoadAsync(); }
 
     private async Task ResetFilters()
     {
@@ -346,6 +312,9 @@
     private async Task RemoveStockFilter() { _stockFilter = ""; await ApplyFilters(); }
     private async Task RemoveSortFilter() { _sortBy = ""; await ApplyFilters(); }
 
+    private async Task GoToPage(int page) { _page = page; await LoadAsync(); }
+
+    // ── Debounce ───────────────────────────────────────────────────────────
     private void TriggerDebounce()
     {
         _debounce?.Stop();
@@ -360,12 +329,7 @@
         _debounce.Start();
     }
 
-    private async Task GoToPage(int page)
-    {
-        _page = page;
-        await LoadAsync();
-    }
-
+    // ── Labels ─────────────────────────────────────────────────────────────
     private string GetSortLabel(string sort) => sort switch
     {
         "price_asc" => "Price Low-High",
@@ -385,13 +349,12 @@
         _ => ""
     };
 
+    // ── Image cache ────────────────────────────────────────────────────────
+    // Uses FileShare.ReadWrite so SQLite WAL files don't block it
     private string GetImageSource(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "";
-        if (!File.Exists(path)) return "";
-
-        if (_imageCache.TryGetValue(path, out var cached))
-            return cached;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return "";
+        if (_imageCache.TryGetValue(path, out var cached)) return cached;
 
         try
         {
