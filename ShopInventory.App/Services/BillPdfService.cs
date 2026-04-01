@@ -23,6 +23,7 @@ namespace ShopInventory.App.Services
 
             h += 14;  // shop name     (14pt font = ~16pt height)
             h += 12;  // arabic name   (11pt font = ~13pt height)
+            h += 10;
             h += 10;  // subtitle line (8.5pt font = ~11pt height)
             h += 4;   // spacer
             h += 2;   // divider line
@@ -75,6 +76,7 @@ namespace ShopInventory.App.Services
             h += 2;   // divider
             h += 6;   // spacer
             h += RowPt;  // thank you
+            h += RowPt + 4;
             h += 14;     // please come again
             h += 10;     // bottom breathing room
 
@@ -106,7 +108,9 @@ namespace ShopInventory.App.Services
                             .FontSize(14).Bold();
 
                         col.Item().AlignCenter().Text("شیر ربانی آٹوز")
-       .FontSize(11).Bold();
+                         .FontSize(11).Bold();
+                        col.Item().AlignCenter().Text("0348-2225300  |  0300-6768749")
+                       .FontSize(8.5f).NormalWeight();
                         col.Item().AlignCenter().Text("Receipt / Invoice")
                             .FontSize(8.5f).NormalWeight();
 
@@ -248,7 +252,12 @@ namespace ShopInventory.App.Services
                         col.Item().Height(10);
                         col.Item().BorderBottom(1f).BorderColor(QColors.Black).Height(1);
                         col.Item().Height(5);
-
+                        // After the Notes block, before col.Item().Height(10):
+                        col.Item().Height(4);
+                        col.Item().BorderTop(0.5f).BorderColor(QColors.Black)
+                            .PaddingTop(3)
+                            .Text("⚠ برقی اشیاء پر واپسی یا وارنٹی نہیں ہے")
+                            .FontSize(8.5f).Bold().Italic();
                         // ── Footer ──
                         col.Item().AlignCenter()
                             .Text("** Thank You For Your Business! **")

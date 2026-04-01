@@ -5,10 +5,63 @@
 
 <div class="tab-card">
     <h5 class="mb-4">Manage Stock</h5>
-    <input class="form-control search-box mb-3"
-           placeholder="Search by name or SKU..."
-           value="@_search"
-           @oninput="OnSearchInput" />
+
+    <!-- Search + Filters -->
+    <div class="filter-bar">
+        <input class="form-control search-box"
+               placeholder="Search by name or SKU..."
+               value="@_search"
+               @oninput="OnSearchInput" />
+
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="filter-label">Category</label>
+                <select class="filter-select" value="@_categoryFilter" @onchange="OnCategoryChange">
+                    <option value="">All Categories</option>
+                    @foreach (var cat in _categories)
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Stock</label>
+                <select class="filter-select" value="@_stockFilter" @onchange="OnStockFilterChange">
+                    <option value="">All</option>
+                    <option value="instock">In Stock</option>
+                    <option value="lowstock">Low Stock (&#8804;10)</option>
+                    <option value="outofstock">Out of Stock</option>
+                </select>
+            </div>
+
+            @if (HasActiveFilters)
+            {
+                <button class="filter-reset-btn" @onclick="ResetFilters">&#10005; Clear</button>
+            }
+        </div>
+    </div>
+
+    <!-- Active Pills -->
+    @if (HasActiveFilters)
+    {
+        <div class="filter-pills">
+            @if (!string.IsNullOrWhiteSpace(_categoryFilter))
+            {
+                <span class="filter-pill">
+                    &#128193; @_categoryFilter
+                    <button @onclick="RemoveCategoryFilter">&#215;</button>
+                </span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_stockFilter))
+            {
+                <span class="filter-pill">
+                    &#128230; @GetStockLabel(_stockFilter)
+                    <button @onclick="RemoveStockFilter">&#215;</button>
+                </span>
+            }
+        </div>
+    }
 
     @if (_loading)
     {
@@ -20,11 +73,11 @@
     else if (_paged.Items.Count == 0)
     {
         <p class="empty-text">
-            @(string.IsNullOrWhiteSpace(_search)
-                ? "No products available."
-                : $"No results for \"{_search}\"")
-        </p>
-    }
+            @(string.IsNullOrWhiteSpace(_search) && !HasActiveFilters
+                    ? "No products available."
+                    : "No results found. Try adjusting your filters.")
+    </p>
+        }
     else
     {
         <div class="table-wrap">
@@ -34,6 +87,7 @@
                         <th>Image</th>
                         <th>Name</th>
                         <th>SKU</th>
+                        <th>Category</th>
                         <th>Qty</th>
                         <th>Stock</th>
                         <th>Actions</th>
@@ -58,6 +112,7 @@
                             </td>
                             <td>@product.Name</td>
                             <td><span class="sku-pill">@product.Sku</span></td>
+                            <td>@(product.Category ?? "—")</td>
                             <td>@product.Quantity</td>
                             <td>
                                 <div class="stock-actions">
@@ -75,11 +130,11 @@
                                 <div class="action-btns">
                                     <button class="btn btn-sm btn-outline-primary"
                                             @onclick="() => OpenEdit(product)">
-                                        ✏️ Edit
+                                        &#9999;&#65039; Edit
                                     </button>
                                     <button class="btn btn-sm btn-outline-danger"
                                             @onclick="() => AskDelete(product)">
-                                        🗑 Delete
+                                        &#128465; Delete
                                     </button>
                                 </div>
                             </td>
@@ -89,12 +144,13 @@
             </table>
         </div>
 
-        <!-- Pagination -->
         @if (_paged.TotalPages > 1)
         {
             <div class="pagination-bar">
                 <button class="pg-btn" disabled="@(!_paged.HasPrev)"
-                        @onclick="@(() => GoToPage(_page - 1))">&#8592;</button>
+                        @onclick="@(() => GoToPage(_page - 1))">
+                    &#8592;
+                </button>
 
                 @for (int i = StartPage; i <= EndPage; i++)
                 {
@@ -106,7 +162,9 @@
                 }
 
                 <button class="pg-btn" disabled="@(!_paged.HasNext)"
-                        @onclick="@(() => GoToPage(_page + 1))">&#8594;</button>
+                        @onclick="@(() => GoToPage(_page + 1))">
+                    &#8594;
+                </button>
                 <span class="pg-info">@_paged.TotalCount products</span>
             </div>
         }
@@ -114,21 +172,19 @@
 </div>
 
 <!-- Edit Modal -->
-@if (showEditModal && editingProduct != null)
+@if (_showEditModal && _editingProduct != null)
 {
     <div class="edit-overlay" @onclick="CloseEdit">
         <div class="edit-box" @onclick:stopPropagation="true">
             <div class="edit-header">
                 <h3>Edit Product</h3>
-                <button class="cd-close" @onclick="CloseEdit">✕</button>
+                <button class="cd-close" @onclick="CloseEdit">&#10005;</button>
             </div>
             <div class="edit-body">
-
-                <!-- Image section -->
                 <div class="edit-image-section">
-                    @if (!string.IsNullOrWhiteSpace(editImagePath))
+                    @if (!string.IsNullOrWhiteSpace(_editImagePath))
                     {
-                        <img src="@GetImageSource(editImagePath)"
+                        <img src="@GetImageSource(_editImagePath)"
                              class="edit-image-preview" alt="Product image" />
                     }
                     else
@@ -146,34 +202,34 @@
 
                 <div class="edit-field">
                     <label>Name</label>
-                    <input type="text" @bind="editName" placeholder="Product name" />
+                    <input type="text" @bind="_editName" placeholder="Product name" />
                 </div>
                 <div class="edit-field">
                     <label>SKU</label>
-                    <input type="text" @bind="editSku" placeholder="SKU" />
+                    <input type="text" @bind="_editSku" placeholder="SKU" />
                 </div>
                 <div class="edit-row">
                     <div class="edit-field">
                         <label>Quantity</label>
-                        <input type="number" @bind="editQuantity" min="0" />
+                        <input type="number" @bind="_editQuantity" min="0" />
                     </div>
                     <div class="edit-field">
                         <label>Sale Price</label>
-                        <input type="number" @bind="editSalePrice" min="0" />
+                        <input type="number" @bind="_editSalePrice" min="0" />
                     </div>
                     <div class="edit-field">
                         <label>Cost Price</label>
-                        <input type="number" @bind="editCostPrice" min="0" />
+                        <input type="number" @bind="_editCostPrice" min="0" />
                     </div>
                 </div>
                 <div class="edit-row">
                     <div class="edit-field">
                         <label>Category</label>
-                        <input type="text" @bind="editCategory" placeholder="Category" />
+                        <input type="text" @bind="_editCategory" placeholder="Category" />
                     </div>
                     <div class="edit-field">
                         <label>Unit</label>
-                        <input type="text" @bind="editUnit" placeholder="e.g. pcs, kg" />
+                        <input type="text" @bind="_editUnit" placeholder="e.g. pcs, kg" />
                     </div>
                 </div>
             </div>
@@ -186,152 +242,151 @@
 }
 
 <!-- Delete Confirmation -->
-<ConfirmDialog IsOpen="showDeleteConfirm"
+<ConfirmDialog IsOpen="_showDeleteConfirm"
                Title="Delete Product"
-               Message="@($"Are you sure you want to delete \"{productToDelete?.Name}\"? This cannot be undone.")"
+               Message="@($"Are you sure you want to delete \"{_productToDelete?.Name}\"? This cannot be undone.")"
                ConfirmText="Delete"
                CancelText="Cancel"
                IsDanger="true"
                OnConfirm="ConfirmDelete"
                OnCancel="CancelDelete" />
 
-<style>
-    .product-thumb {
-        width: 40px;
-        height: 40px;
-        object-fit: cover;
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-    }
-
-    .no-image-thumb {
-        width: 40px;
-        height: 40px;
-        border-radius: 6px;
-        border: 1.5px dashed #d1d5db;
-        background: #f9fafb;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        color: #9ca3af;
-    }
-
-    .edit-image-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .edit-image-preview {
-        width: 90px;
-        height: 90px;
-        object-fit: cover;
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-    }
-
-    .edit-no-image {
-        width: 90px;
-        height: 90px;
-        border-radius: 10px;
-        border: 2px dashed #d1d5db;
-        background: #f9fafb;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        font-size: 26px;
-        color: #9ca3af;
-    }
-
-        .edit-no-image p {
-            font-size: 11px;
-            color: #9ca3af;
-            margin: 0;
-        }
-</style>
-
 @code {
-    // Keep these so the parent page doesn't break if it still passes them
-    [Parameter] public List<ProductDto> Products { get; set; } = new();
     [Parameter] public EventCallback<Guid> OnIncreaseQuantity { get; set; }
     [Parameter] public EventCallback<Guid> OnDecreaseQuantity { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteProduct { get; set; }
     [Parameter] public EventCallback<ProductDto> OnEditProduct { get; set; }
 
-     private Dictionary<string, string> _imageCache = new();
-    // ── Pagination & search state ──────────────────────────────────────────
-    private PagedResult<ProductDto> _paged = new() { Items = new() };
+    // ── Paged result from DB ───────────────────────────────────────────────
+    private PagedResult<ProductDto> _paged =
+        new() { Items = new(), PageSize = 10, Page = 1 };
+
+    // ── Filter / search state ──────────────────────────────────────────────
     private string _search = "";
     private int _page = 1;
     private const int PageSize = 10;
     private bool _loading = false;
+    private string _categoryFilter = "";
+    private string _stockFilter = "";
+    private List<string> _categories = new();
+
     private System.Timers.Timer? _debounce;
+    private readonly Dictionary<string, string> _imageCache = new();
+
+    // ── Edit modal state ───────────────────────────────────────────────────
+    private bool _showEditModal = false;
+    private ProductDto? _editingProduct = null;
+    private string _editName = "";
+    private string _editSku = "";
+    private int _editQuantity = 0;
+    private decimal _editSalePrice = 0;
+    private decimal _editCostPrice = 0;
+    private string _editCategory = "";
+    private string _editUnit = "";
+    private string _editImagePath = "";
+
+    // ── Delete confirm state ───────────────────────────────────────────────
+    private bool _showDeleteConfirm = false;
+    private ProductDto? _productToDelete = null;
+
+    // ── Computed ───────────────────────────────────────────────────────────
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_categoryFilter) ||
+        !string.IsNullOrWhiteSpace(_stockFilter);
 
     private int StartPage => Math.Max(1, _page - 2);
-    private int EndPage   => Math.Min(_paged.TotalPages, StartPage + 4);
+    private int EndPage => Math.Min(_paged.TotalPages, StartPage + 4);
 
-    // ── Modal state ────────────────────────────────────────────────────────
-    private bool showDeleteConfirm = false;
-    private ProductDto? productToDelete;
-    private bool showEditModal = false;
-    private ProductDto? editingProduct;
-    private string editName = "";
-    private string editSku = "";
-    private int editQuantity = 0;
-    private decimal editSalePrice = 0;
-    private decimal editCostPrice = 0;
-    private string editCategory = "";
-    private string editUnit = "";
-    private string editImagePath = "";
-
-    // ── Image cache ────────────────────────────────────────────────────────
-  
-    // ══════════════════════════════════════════════════════════════════════
-    //  Lifecycle
-    // ══════════════════════════════════════════════════════════════════════
-
+    // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
+        await LoadCategoriesAsync();
         await LoadAsync();
     }
 
-    /// <summary>Call this from the parent page after any add/delete/edit so
-    /// the table refreshes without a full page reload.</summary>
     public async Task RefreshAsync()
     {
         _page = 1;
+        await LoadCategoriesAsync();
         await LoadAsync();
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Data loading
-    // ══════════════════════════════════════════════════════════════════════
+    // ── Data loading ───────────────────────────────────────────────────────
+    // FIX: one cheap DISTINCT query instead of loading all products
+    private async Task LoadCategoriesAsync()
+    {
+        _categories = await ProductService.GetDistinctCategoriesAsync();
+    }
 
+    // FIX: SQLite does all the work — only 10 rows ever come back
     private async Task LoadAsync()
     {
         _loading = true;
         StateHasChanged();
-        _paged = await ProductService.GetPagedAsync(_search, _page, PageSize);
+
+        _paged = await ProductService.GetPagedAsync(
+            search: _search,
+            page: _page,
+            pageSize: PageSize,
+            category: _categoryFilter,
+            stockFilter: _stockFilter
+        );
+
+        // Clamp page if filters reduced the total
+        if (_page > _paged.TotalPages && _paged.TotalPages > 0)
+        {
+            _page = _paged.TotalPages;
+            _paged = await ProductService.GetPagedAsync(
+                search: _search,
+                page: _page,
+                pageSize: PageSize,
+                category: _categoryFilter,
+                stockFilter: _stockFilter
+            );
+        }
+
         _loading = false;
         StateHasChanged();
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Search  (300 ms debounce — same as ProductList)
-    // ══════════════════════════════════════════════════════════════════════
-
+    // ── Event handlers ─────────────────────────────────────────────────────
     private void OnSearchInput(ChangeEventArgs e)
     {
         _search = e.Value?.ToString() ?? "";
         _page = 1;
+        TriggerDebounce();
+    }
 
+    private async Task OnCategoryChange(ChangeEventArgs e)
+    {
+        _categoryFilter = e.Value?.ToString() ?? "";
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnStockFilterChange(ChangeEventArgs e)
+    {
+        _stockFilter = e.Value?.ToString() ?? "";
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ResetFilters()
+    {
+        _categoryFilter = "";
+        _stockFilter = "";
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task RemoveCategoryFilter() { _categoryFilter = ""; _page = 1; await LoadAsync(); }
+    private async Task RemoveStockFilter() { _stockFilter = ""; _page = 1; await LoadAsync(); }
+
+    private async Task GoToPage(int page) { _page = page; await LoadAsync(); }
+
+    // ── Debounce for search ────────────────────────────────────────────────
+    private void TriggerDebounce()
+    {
         _debounce?.Stop();
         _debounce?.Dispose();
         _debounce = new System.Timers.Timer(300);
@@ -344,24 +399,14 @@
         _debounce.Start();
     }
 
-    private async Task GoToPage(int page)
-    {
-        _page = page;
-        await LoadAsync();
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  Stock adjustment  (calls existing parent callbacks for compat)
-    // ══════════════════════════════════════════════════════════════════════
-
+    // ── Stock adjustment ───────────────────────────────────────────────────
+    // FIX: update the DB directly then reload just this page — no full refresh
     private async Task AdjustStock(Guid id, int delta)
     {
-        if (delta > 0)
-            await OnIncreaseQuantity.InvokeAsync(id);
-        else
-            await OnDecreaseQuantity.InvokeAsync(id);
+        if (delta > 0) await OnIncreaseQuantity.InvokeAsync(id);
+        else await OnDecreaseQuantity.InvokeAsync(id);
 
-        // Optimistically update the visible row so qty changes instantly
+        // Optimistic local update so the number changes instantly
         var item = _paged.Items.FirstOrDefault(p => p.Id == id);
         if (item != null)
         {
@@ -370,56 +415,49 @@
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Delete
-    // ══════════════════════════════════════════════════════════════════════
-
+    // ── Delete ─────────────────────────────────────────────────────────────
     private void AskDelete(ProductDto product)
     {
-        productToDelete = product;
-        showDeleteConfirm = true;
+        _productToDelete = product;
+        _showDeleteConfirm = true;
     }
 
     private async Task ConfirmDelete()
     {
-        showDeleteConfirm = false;
-        if (productToDelete != null)
+        _showDeleteConfirm = false;
+        if (_productToDelete != null)
         {
-            await OnDeleteProduct.InvokeAsync(productToDelete.Id);
-            // Reload to get accurate page after deletion
-            await LoadAsync();
+            await OnDeleteProduct.InvokeAsync(_productToDelete.Id);
+            await LoadAsync();   // reload current page after deletion
         }
-        productToDelete = null;
+        _productToDelete = null;
     }
 
     private void CancelDelete()
     {
-        showDeleteConfirm = false;
-        productToDelete = null;
+        _showDeleteConfirm = false;
+        _productToDelete = null;
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Edit
-    // ══════════════════════════════════════════════════════════════════════
-
+    // ── Edit modal ─────────────────────────────────────────────────────────
     private void OpenEdit(ProductDto product)
     {
-        editingProduct  = product;
-        editName        = product.Name;
-        editSku         = product.Sku;
-        editQuantity    = product.Quantity;
-        editSalePrice   = product.SalePrice;
-        editCostPrice   = product.CostPrice;
-        editCategory    = product.Category ?? "";
-        editUnit        = product.Unit ?? "";
-        editImagePath   = product.ImagePath ?? "";
-        showEditModal   = true;
+        _editingProduct = product;
+        _editName = product.Name;
+        _editSku = product.Sku;
+        _editQuantity = product.Quantity;
+        _editSalePrice = product.SalePrice;
+        _editCostPrice = product.CostPrice;
+        _editCategory = product.Category ?? "";
+        _editUnit = product.Unit ?? "";
+        _editImagePath = product.ImagePath ?? "";
+        _showEditModal = true;
     }
 
     private void CloseEdit()
     {
-        showEditModal   = false;
-        editingProduct  = null;
+        _showEditModal = false;
+        _editingProduct = null;
     }
 
     private async Task PickEditImageAsync()
@@ -427,54 +465,53 @@
         var file = await FilePicker.Default.PickAsync(new PickOptions
         {
             PickerTitle = "Select product image",
-            FileTypes   = FilePickerFileType.Images
+            FileTypes = FilePickerFileType.Images
         });
-
         if (file is null) return;
 
-        var extension        = Path.GetExtension(file.FileName);
-        var fileName         = $"{Guid.NewGuid()}{extension}";
-        var localPath        = Path.Combine(FileSystem.AppDataDirectory, fileName);
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var localPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
 
-        await using (var src  = await file.OpenReadAsync())
+        await using (var src = await file.OpenReadAsync())
         await using (var dest = File.Create(localPath))
             await src.CopyToAsync(dest);
 
-        _imageCache.Remove(localPath);  // bust cache for fresh read
-        editImagePath = localPath;
+        _imageCache.Remove(localPath);
+        _editImagePath = localPath;
         StateHasChanged();
     }
 
     private async Task ConfirmEdit()
     {
-        if (editingProduct == null) return;
+        if (_editingProduct == null) return;
 
         var updated = new ProductDto
         {
-            Id         = editingProduct.Id,
-            Name       = editName.Trim(),
-            Sku        = editSku.Trim(),
-            Quantity   = editQuantity,
-            SalePrice  = editSalePrice,
-            CostPrice  = editCostPrice,
-            Category   = editCategory.Trim(),
-            Unit       = editUnit.Trim(),
-            ImagePath  = editImagePath
+            Id = _editingProduct.Id,
+            Name = _editName.Trim(),
+            Sku = _editSku.Trim(),
+            Quantity = _editQuantity,
+            SalePrice = _editSalePrice,
+            CostPrice = _editCostPrice,
+            Category = _editCategory.Trim(),
+            Unit = _editUnit.Trim(),
+            ImagePath = _editImagePath
         };
 
         await OnEditProduct.InvokeAsync(updated);
 
-        // Optimistically update the visible row
+        // Optimistic local update so the row reflects changes instantly
         var local = _paged.Items.FirstOrDefault(p => p.Id == updated.Id);
         if (local != null)
         {
-            local.Name      = updated.Name;
-            local.Sku       = updated.Sku;
-            local.Quantity  = updated.Quantity;
+            local.Name = updated.Name;
+            local.Sku = updated.Sku;
+            local.Quantity = updated.Quantity;
             local.SalePrice = updated.SalePrice;
             local.CostPrice = updated.CostPrice;
-            local.Category  = updated.Category;
-            local.Unit      = updated.Unit;
+            local.Category = updated.Category;
+            local.Unit = updated.Unit;
             local.ImagePath = updated.ImagePath;
         }
 
@@ -482,44 +519,41 @@
         StateHasChanged();
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  Image helper  (cached base64, same as before)
-    // ══════════════════════════════════════════════════════════════════════
-
-   // Paste this into BOTH ProductList.razor and ManageStock.razor
-// Replace the existing GetImageSource method in each
-
-// Also add this field at the top of @code in ProductList (ManageStock already has it):
-// private Dictionary<string, string> _imageCache = new();
-
-private string GetImageSource(string? path)
-{
-    if (string.IsNullOrWhiteSpace(path)) return "";
-    if (!File.Exists(path)) return "";
-
-    // Return from cache — avoids re-reading the file on every render
-    if (_imageCache.TryGetValue(path, out var cached))
-        return cached;
-
-    try
+    // ── Image cache ────────────────────────────────────────────────────────
+    private string GetImageSource(string? path)
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var ms     = new MemoryStream();
-        stream.CopyTo(ms);
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return "";
+        if (_imageCache.TryGetValue(path, out var cached)) return cached;
 
-        var mime = Path.GetExtension(path).ToLowerInvariant() switch
+        try
         {
-            ".png"            => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".webp"           => "image/webp",
-            ".gif"            => "image/gif",
-            _                 => "image/jpeg"   // safe fallback
-        };
+            using var stream = new FileStream(
+                path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
 
-        var result = $"data:{mime};base64,{Convert.ToBase64String(ms.ToArray())}";
-        _imageCache[path] = result;
-        return result;
+            var mime = Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                _ => "image/jpeg"
+            };
+
+            var result = $"data:{mime};base64,{Convert.ToBase64String(ms.ToArray())}";
+            _imageCache[path] = result;
+            return result;
+        }
+        catch { return ""; }
     }
-    catch { return ""; }
-}
+
+    // ── Labels ─────────────────────────────────────────────────────────────
+    private string GetStockLabel(string s) => s switch
+    {
+        "instock" => "In Stock",
+        "lowstock" => "Low Stock",
+        "outofstock" => "Out of Stock",
+        _ => ""
+    };
 }

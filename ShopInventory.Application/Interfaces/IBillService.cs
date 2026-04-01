@@ -32,7 +32,7 @@ namespace ShopInventory.Application.Interfaces
         Task DeductInventoryAsync(Guid billId);
         Task<Bill> UpdateBillAsync(Guid billId, Bill updatedBill);
 
-        Task<PagedResult<Bill>> GetPagedBillsAsync(string? search, string filter, int page, int pageSize);
+        Task<PagedResult<BillListDto>> GetPagedBillsAsync(string? search, string filter, int page, int pageSize);
 
     }
 }

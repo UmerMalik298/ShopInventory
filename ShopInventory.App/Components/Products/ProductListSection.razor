@@ -11,6 +11,99 @@
                @oninput="OnSearchInput" />
     </div>
 
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="filter-label">Category</label>
+                <select class="filter-select" value="@_categoryFilter" @onchange="OnCategoryChange">
+                    <option value="">All Categories</option>
+                    @foreach (var cat in _categories)
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Min Price</label>
+                <input class="filter-input" type="number" min="0" placeholder="0.00"
+                       value="@_minPrice"
+                       @onchange="OnMinPriceChange" />
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Max Price</label>
+                <input class="filter-input" type="number" min="0" placeholder="Any"
+                       value="@_maxPrice"
+                       @onchange="OnMaxPriceChange" />
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Stock</label>
+                <select class="filter-select" value="@_stockFilter" @onchange="OnStockFilterChange">
+                    <option value="">All</option>
+                    <option value="instock">In Stock</option>
+                    <option value="lowstock">Low Stock (&#8804;10)</option>
+                    <option value="outofstock">Out of Stock</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Sort By</label>
+                <select class="filter-select" value="@_sortBy" @onchange="OnSortChange">
+                    <option value="">Default</option>
+                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price: High to Low</option>
+                    <option value="qty_asc">Quantity: Low to High</option>
+                    <option value="qty_desc">Quantity: High to Low</option>
+                    <option value="name_asc">Name: A to Z</option>
+                    <option value="name_desc">Name: Z to A</option>
+                </select>
+            </div>
+
+            @if (HasActiveFilters)
+            {
+                <button class="filter-reset-btn" @onclick="ResetFilters">&#10005; Clear Filters</button>
+            }
+        </div>
+    </div>
+
+    <!-- Active Filter Pills -->
+    @if (HasActiveFilters)
+    {
+        <div class="filter-pills">
+            @if (!string.IsNullOrWhiteSpace(_categoryFilter))
+            {
+                <span class="filter-pill">
+                    &#128193; @_categoryFilter
+                    <button @onclick="RemoveCategoryFilter">&#215;</button>
+                </span>
+            }
+            @if (_minPrice.HasValue || _maxPrice.HasValue)
+            {
+                <span class="filter-pill">
+                    &#128176; @(_minPrice.HasValue ? "from " + _minPrice.Value.ToString("F0") : "") @(_maxPrice.HasValue ? "to " + _maxPrice.Value.ToString("F0") : "")
+                    <button @onclick="RemovePriceFilter">&#215;</button>
+                </span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_stockFilter))
+            {
+                <span class="filter-pill">
+                    &#128230; @GetStockLabel(_stockFilter)
+                    <button @onclick="RemoveStockFilter">&#215;</button>
+                </span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_sortBy))
+            {
+                <span class="filter-pill">
+                    &#8597; @GetSortLabel(_sortBy)
+                    <button @onclick="RemoveSortFilter">&#215;</button>
+                </span>
+            }
+        </div>
+    }
+
     @if (_loading)
     {
         <div class="loading-state">
@@ -21,10 +114,14 @@
     else if (_paged.Items.Count == 0)
     {
         <div class="empty-state">
-            <span>📦</span>
-            <p>@(string.IsNullOrWhiteSpace(_search) ? "No products found. Add your first product!" : $"No results for \"{_search}\"")</p>
-        </div>
-    }
+            <span>&#128230;</span>
+            <p>
+                @(string.IsNullOrWhiteSpace(_search) && !HasActiveFilters
+                            ? "No products found. Add your first product!"
+                            : "No results found. Try adjusting your filters.")
+        </p>
+    </div>
+        }
     else
     {
         <div class="products-grid">
@@ -39,11 +136,10 @@
                              Category="@(product.Category ?? "")"
                              Unit="@(product.Unit ?? "")"
                              ImageUrl="@GetImageSource(product.ImagePath)"
-                             OldPrice="@(product.OldPrice?.ToString("F2") ?? "")" />
+                             OldPrice="@(product.OldPrice.HasValue ? product.OldPrice.Value.ToString("F2") : "")" />
             }
         </div>
 
-        <!-- Pagination -->
         @if (_paged.TotalPages > 1)
         {
             <div class="pagination-bar">
@@ -66,52 +162,161 @@
 </div>
 
 @code {
-    // These are still here so the parent page doesn't break if it passes them
-    [Parameter] public List<ProductDto> Products { get; set; } = new();
-    [Parameter] public EventCallback<string> OnSearch { get; set; }
-    [Parameter] public EventCallback OnReset { get; set; }
-
-    // Callback so parent page can react to data changes (e.g. after add/delete)
     [Parameter] public EventCallback OnRefreshNeeded { get; set; }
 
-    private PagedResult<ProductDto> _paged = new() { Items = new() };
+    // ── State ─────────────────────────────────────────────────────────────
+    private PagedResult<ProductDto> _paged = new() { Items = new(), PageSize = 16, Page = 1 };
     private string _search = "";
     private int _page = 1;
-    private const int PageSize = 20;
+    private const int PageSize = 16;
     private bool _loading = false;
+
+    private string _categoryFilter = "";
+    private decimal? _minPrice = null;
+    private decimal? _maxPrice = null;
+    private string _stockFilter = "";
+    private string _sortBy = "";
+
+    private List<string> _categories = new();
+
+    // Image cache — kept in memory, never reloaded for same path
+    private readonly Dictionary<string, string> _imageCache = new();
+
+    // Debounce timer for search
     private System.Timers.Timer? _debounce;
 
-    // Page button range — max 5 centered around current
+    // ── Computed ───────────────────────────────────────────────────────────
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_categoryFilter) ||
+        _minPrice.HasValue || _maxPrice.HasValue ||
+        !string.IsNullOrWhiteSpace(_stockFilter) ||
+        !string.IsNullOrWhiteSpace(_sortBy);
+
     private int StartPage => Math.Max(1, _page - 2);
     private int EndPage => Math.Min(_paged.TotalPages, StartPage + 4);
-     private Dictionary<string, string> _imageCache = new();
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
+        // Load categories once with a lightweight distinct query
+        // Then load the first page — two small DB hits, not one huge one
+        await LoadCategoriesAsync();
         await LoadAsync();
     }
 
-    // Call this from parent after adding/deleting a product
     public async Task RefreshAsync()
     {
         _page = 1;
+        await LoadCategoriesAsync();
         await LoadAsync();
     }
 
+    // ── Data loading ───────────────────────────────────────────────────────
+    // FIX: only fetch the distinct categories — one tiny query, no full scan
+    private async Task LoadCategoriesAsync()
+    {
+        _categories = await ProductService.GetDistinctCategoriesAsync();
+    }
+
+    // FIX: pass ALL filter/sort/page params to the service so SQLite does
+    //      the heavy lifting. We only receive the 20 rows we actually need.
     private async Task LoadAsync()
     {
         _loading = true;
         StateHasChanged();
-        _paged = await ProductService.GetPagedAsync(_search, _page, PageSize);
+
+        _paged = await ProductService.GetPagedAsync(
+            search: _search,
+            page: _page,
+            pageSize: PageSize,
+            category: _categoryFilter,
+            minPrice: _minPrice,
+            maxPrice: _maxPrice,
+            stockFilter: _stockFilter,
+            sortBy: _sortBy
+        );
+
+        // Clamp page if filters reduced total pages
+        if (_page > _paged.TotalPages && _paged.TotalPages > 0)
+        {
+            _page = _paged.TotalPages;
+            _paged = await ProductService.GetPagedAsync(
+                search: _search,
+                page: _page,
+                pageSize: PageSize,
+                category: _categoryFilter,
+                minPrice: _minPrice,
+                maxPrice: _maxPrice,
+                stockFilter: _stockFilter,
+                sortBy: _sortBy
+            );
+        }
+
         _loading = false;
         StateHasChanged();
     }
 
+    // ── Event handlers ─────────────────────────────────────────────────────
     private void OnSearchInput(ChangeEventArgs e)
     {
         _search = e.Value?.ToString() ?? "";
         _page = 1;
+        TriggerDebounce();   // wait 300 ms before hitting DB
+    }
 
-        // Debounce 300ms — don't query on every keystroke
+    private async Task OnCategoryChange(ChangeEventArgs e)
+    {
+        _categoryFilter = e.Value?.ToString() ?? "";
+        await ApplyFilters();
+    }
+
+    private async Task OnMinPriceChange(ChangeEventArgs e)
+    {
+        _minPrice = decimal.TryParse(e.Value?.ToString(), out var v) ? v : (decimal?)null;
+        await ApplyFilters();
+    }
+
+    private async Task OnMaxPriceChange(ChangeEventArgs e)
+    {
+        _maxPrice = decimal.TryParse(e.Value?.ToString(), out var v) ? v : (decimal?)null;
+        await ApplyFilters();
+    }
+
+    private async Task OnStockFilterChange(ChangeEventArgs e)
+    {
+        _stockFilter = e.Value?.ToString() ?? "";
+        await ApplyFilters();
+    }
+
+    private async Task OnSortChange(ChangeEventArgs e)
+    {
+        _sortBy = e.Value?.ToString() ?? "";
+        await ApplyFilters();
+    }
+
+    private async Task ApplyFilters() { _page = 1; await LoadAsync(); }
+
+    private async Task ResetFilters()
+    {
+        _categoryFilter = "";
+        _minPrice = null;
+        _maxPrice = null;
+        _stockFilter = "";
+        _sortBy = "";
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task RemoveCategoryFilter() { _categoryFilter = ""; await ApplyFilters(); }
+    private async Task RemovePriceFilter() { _minPrice = null; _maxPrice = null; await ApplyFilters(); }
+    private async Task RemoveStockFilter() { _stockFilter = ""; await ApplyFilters(); }
+    private async Task RemoveSortFilter() { _sortBy = ""; await ApplyFilters(); }
+
+    private async Task GoToPage(int page) { _page = page; await LoadAsync(); }
+
+    // ── Debounce ───────────────────────────────────────────────────────────
+    private void TriggerDebounce()
+    {
         _debounce?.Stop();
         _debounce?.Dispose();
         _debounce = new System.Timers.Timer(300);
@@ -124,47 +329,52 @@
         _debounce.Start();
     }
 
-    private async Task GoToPage(int page)
+    // ── Labels ─────────────────────────────────────────────────────────────
+    private string GetSortLabel(string sort) => sort switch
     {
-        _page = page;
-        await LoadAsync();
-    }
+        "price_asc" => "Price Low-High",
+        "price_desc" => "Price High-Low",
+        "qty_asc" => "Qty Low-High",
+        "qty_desc" => "Qty High-Low",
+        "name_asc" => "Name A-Z",
+        "name_desc" => "Name Z-A",
+        _ => ""
+    };
 
-// Paste this into BOTH ProductList.razor and ManageStock.razor
-// Replace the existing GetImageSource method in each
-
-// Also add this field at the top of @code in ProductList (ManageStock already has it):
-// private Dictionary<string, string> _imageCache = new();
-
-private string GetImageSource(string? path)
-{
-    if (string.IsNullOrWhiteSpace(path)) return "";
-    if (!File.Exists(path)) return "";
-
-    // Return from cache — avoids re-reading the file on every render
-    if (_imageCache.TryGetValue(path, out var cached))
-        return cached;
-
-    try
+    private string GetStockLabel(string stock) => stock switch
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var ms     = new MemoryStream();
-        stream.CopyTo(ms);
+        "instock" => "In Stock",
+        "lowstock" => "Low Stock",
+        "outofstock" => "Out of Stock",
+        _ => ""
+    };
 
-        var mime = Path.GetExtension(path).ToLowerInvariant() switch
+    // ── Image cache ────────────────────────────────────────────────────────
+    // Uses FileShare.ReadWrite so SQLite WAL files don't block it
+    private string GetImageSource(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return "";
+        if (_imageCache.TryGetValue(path, out var cached)) return cached;
+
+        try
         {
-            ".png"            => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".webp"           => "image/webp",
-            ".gif"            => "image/gif",
-            _                 => "image/jpeg"   // safe fallback
-        };
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
 
-        var result = $"data:{mime};base64,{Convert.ToBase64String(ms.ToArray())}";
-        _imageCache[path] = result;
-        return result;
+            var mime = Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                _ => "image/jpeg"
+            };
+
+            var result = $"data:{mime};base64,{Convert.ToBase64String(ms.ToArray())}";
+            _imageCache[path] = result;
+            return result;
+        }
+        catch { return ""; }
     }
-    catch { return ""; }
 }
-}
-

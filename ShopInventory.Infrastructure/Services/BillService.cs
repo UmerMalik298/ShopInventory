@@ -298,11 +298,15 @@ namespace ShopInventory.Infrastructure.Services
             return bill;
         }
 
-        public async Task<PagedResult<Bill>> GetPagedBillsAsync(
-    string? search, string filter, int page, int pageSize)
+        public async Task<PagedResult<BillListDto>> GetPagedBillsAsync(
+                   string? search, string filter, int page, int pageSize)
         {
-            var query = _db.Bill.Include(b => b.Items).AsQueryable();
+            // FIX: removed .Include(b => b.Items) — that was loading ALL bill
+            // items for every bill on the page. For 10 bills × 5 items = 50
+            // unnecessary rows fetched and immediately thrown away.
+            var query = _db.Bill.AsNoTracking().AsQueryable();
 
+            // Search
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.Trim().ToLower();
@@ -311,6 +315,7 @@ namespace ShopInventory.Infrastructure.Services
                     (b.CustomerName != null && b.CustomerName.ToLower().Contains(term)));
             }
 
+            // Status filter
             query = filter switch
             {
                 "unpaid" => query.Where(b => !b.IsDraft && b.PaymentStatus == PaymentStatus.Unpaid),
@@ -320,15 +325,29 @@ namespace ShopInventory.Infrastructure.Services
                 _ => query
             };
 
+            // COUNT — one SQL COUNT(*) with all filters applied
             var totalCount = await query.CountAsync();
 
+            // FETCH — project only the 8 columns the list UI needs.
+            // b.Items.Count() translates to a SQL COUNT subquery — no items loaded.
             var items = await query
                 .OrderByDescending(b => b.BilledAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Select(b => new BillListDto
+                {
+                    Id = b.Id,
+                    BillNo = b.BillNo,
+                    CustomerName = b.CustomerName,
+                    BilledAt = b.BilledAt,
+                    TotalAmount = b.TotalAmount,
+                    PaymentStatus = b.PaymentStatus,
+                    IsDraft = b.IsDraft,
+                    ItemCount = b.Items.Count()
+                })
                 .ToListAsync();
 
-            return new PagedResult<Bill>
+            return new PagedResult<BillListDto>
             {
                 Items = items,
                 TotalCount = totalCount,

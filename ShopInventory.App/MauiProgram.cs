@@ -23,10 +23,9 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
 
-
-        #if DEBUG
+#if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
-        #endif
+#endif
 
         builder.Services.AddHttpClient("ApiClient", client =>
         {
@@ -39,50 +38,85 @@ public static class MauiProgram
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "shopinventory.db");
         System.Diagnostics.Debug.WriteLine("DB PATH = " + dbPath);
 
+        // ── BACKUP — runs before anything touches the DB ──────────────────
+        // Creates a copy of the DB file dated today, e.g.:
+        //   shopinventory.db.backup-20260330-1420
+        // Location: same folder as the DB itself (FileSystem.AppDataDirectory)
+        // On Windows: C:\Users\<user>\AppData\Local\<AppName>\
+        // On Mac:     /Users/<user>/.local/share/<AppName>/
+        // Keeps only the 5 most recent backups — older ones are deleted.
+        try
+        {
+            if (File.Exists(dbPath))
+            {
+                var backupFolder = Path.GetDirectoryName(dbPath)!;
+                var backupPath = dbPath + $".backup-{DateTime.Now:yyyyMMdd-HHmm}";
+
+                // Only create one backup per minute (avoids duplicates on fast restarts)
+                if (!File.Exists(backupPath))
+                    File.Copy(dbPath, backupPath);
+
+                // Delete old backups — keep only latest 5
+                var oldBackups = Directory.GetFiles(backupFolder, "shopinventory.db.backup-*")
+                    .OrderByDescending(f => f)
+                    .Skip(5);
+
+                foreach (var old in oldBackups)
+                    File.Delete(old);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Never crash the app because of a backup failure
+            System.Diagnostics.Debug.WriteLine($"[Backup] Failed: {ex.Message}");
+        }
+
+        // ── Error log — writes crashes to a readable text file ────────────
+        // Location: same folder as the DB
+        //   shopinventory.db  →  error.log  (same directory)
+        // You can ask the client to send you this file when something breaks.
+        var logPath = Path.Combine(FileSystem.AppDataDirectory, "error.log");
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            try
+            {
+                var msg = $"[{DateTime.Now:dd/MM/yyyy HH:mm:ss}]\n{e.ExceptionObject}\n\n";
+                File.AppendAllText(logPath, msg);
+            }
+            catch { }
+        };
+
+        // ── Services ──────────────────────────────────────────────────────
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlite($"Filename={dbPath}"),
-              ServiceLifetime.Transient);
+            ServiceLifetime.Scoped);
 
         builder.Services.AddTransient<IDbContext>(sp =>
             sp.GetRequiredService<ApplicationDbContext>());
 
         builder.Services.AddInfrastructure(builder.Configuration);
         builder.Services.AddSingleton<LoaderService>();
-        builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Services.AddSingleton<LicenseService>();
-        builder.Logging.AddDebug();
-      
         builder.Services.AddSingleton<BillPdfService>();
         builder.Services.AddSingleton<CartService>();
+
+        builder.Logging.AddDebug();
+
         var app = builder.Build();
 
-        // Scope only for migration
+        // ── Migration + SQLite tuning ─────────────────────────────────────
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
             db.Database.Migrate();
+
+            db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+            db.Database.ExecuteSqlRaw("PRAGMA synchronous=NORMAL;");
+            db.Database.ExecuteSqlRaw("PRAGMA cache_size=-32000;");
+            db.Database.ExecuteSqlRaw("PRAGMA temp_store=MEMORY;");
         }
 
-        // 24-hour auto sync loop
-        //_ = Task.Run(async () =>
-        //{
-        //    await Task.Delay(TimeSpan.FromSeconds(10)); // wait for app to load
-        //    while (true)
-        //    {
-        //        try
-        //        {
-        //            using var scope = app.Services.CreateScope();
-        //            var sync = scope.ServiceProvider.GetRequiredService<ISyncService>();
-        //            await sync.SyncAsync();
-        //            System.Diagnostics.Debug.WriteLine($"[AutoSync] Done at {DateTime.UtcNow}");
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            System.Diagnostics.Debug.WriteLine($"[AutoSync] Error: {ex.Message}");
-        //        }
-        //        await Task.Delay(TimeSpan.FromHours(24));
-        //    }
-        //});
         return app;
     }
 }

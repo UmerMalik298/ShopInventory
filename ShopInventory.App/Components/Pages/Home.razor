@@ -28,7 +28,6 @@
                 <h1 class="dash-title">Dashboard</h1>
                 <p class="dash-sub">@DateTime.Now.ToString("dddd, dd MMMM yyyy")</p>
             </div>
-
             <button class="dash-refresh @(_isRefreshing ? "refreshing" : "")" @onclick="LoadAsync">
                 <span class="refresh-icon">↻</span>
                 <span>@(_isRefreshing ? "Refreshing..." : "Refresh")</span>
@@ -43,7 +42,6 @@
                     <strong class="kpi-val">@_dashboard.TotalProducts</strong>
                 </div>
             </div>
-
             <div class="kpi-card purple">
                 <div class="kpi-icon">🧩</div>
                 <div class="kpi-body">
@@ -51,7 +49,6 @@
                     <strong class="kpi-val">@_dashboard.TotalVariants</strong>
                 </div>
             </div>
-
             <div class="kpi-card orange">
                 <div class="kpi-icon">🛒</div>
                 <div class="kpi-body">
@@ -59,7 +56,6 @@
                     <strong class="kpi-val">@_dashboard.TodaySalesCount</strong>
                 </div>
             </div>
-
             <div class="kpi-card green">
                 <div class="kpi-icon">💰</div>
                 <div class="kpi-body">
@@ -67,7 +63,6 @@
                     <strong class="kpi-val">@_dashboard.TodayRevenue.ToString("F2")</strong>
                 </div>
             </div>
-
             <div class="kpi-card emerald">
                 <div class="kpi-icon">📈</div>
                 <div class="kpi-body">
@@ -75,7 +70,6 @@
                     <strong class="kpi-val">@_dashboard.TodayProfit.ToString("F2")</strong>
                 </div>
             </div>
-
             <div class="kpi-card red">
                 <div class="kpi-icon">⚠️</div>
                 <div class="kpi-body">
@@ -88,7 +82,6 @@
         <div class="charts-row">
             <div class="chart-card wide">
                 <h4 class="chart-title">Sales - Last 7 Days</h4>
-
                 @if (!_dashboard.Last7Days.Any() || _dashboard.Last7Days.All(x => x.Revenue == 0))
                 {
                     <div class="chart-empty">No sales in the last 7 days</div>
@@ -99,11 +92,9 @@
                         @foreach (var day in _dashboard.Last7Days)
                         {
                             var height = maxRevenue > 0 ? (day.Revenue / maxRevenue) * 100 : 0;
-                            var style = $"height:{height:F1}%";
-
                             <div class="bar-col">
                                 <div class="bar-wrap" title="Revenue: @day.Revenue.ToString("F2"), Units: @day.UnitsSold">
-                                    <div class="bar revenue" style="@style"></div>
+                                    <div class="bar revenue" style="height:@height.ToString("F1")%"></div>
                                 </div>
                                 <span class="bar-value">@day.Revenue.ToString("F0")</span>
                                 <span class="bar-label">@day.DayLabel</span>
@@ -115,7 +106,6 @@
 
             <div class="chart-card">
                 <h4 class="chart-title">Top Selling Products</h4>
-
                 @if (!_dashboard.TopProducts.Any())
                 {
                     <div class="chart-empty">No sales yet</div>
@@ -126,15 +116,13 @@
                         @foreach (var item in _dashboard.TopProducts)
                         {
                             var width = maxUnits > 0 ? ((decimal)item.UnitsSold / maxUnits) * 100 : 0;
-                            var style = $"width:{width:F1}%";
-
                             <div class="tp-row">
                                 <div class="tp-head">
                                     <span class="tp-name">@item.Name</span>
                                     <span class="tp-units">x@item.UnitsSold</span>
                                 </div>
                                 <div class="tp-bar-wrap">
-                                    <div class="tp-bar" style="@style"></div>
+                                    <div class="tp-bar" style="width:@width.ToString("F1")%"></div>
                                 </div>
                                 <div class="tp-meta">
                                     <span>@item.Revenue.ToString("F2")</span>
@@ -152,7 +140,6 @@
                     <h4 class="chart-title">Low And Out Of Stock</h4>
                     <span class="small-badge">@_dashboard.LowStockItems.Count item(s)</span>
                 </div>
-
                 @if (!_dashboard.LowStockItems.Any())
                 {
                     <div class="chart-empty">No stock alerts</div>
@@ -173,14 +160,12 @@
                                     </div>
                                     <div class="stock-status">@item.Status</div>
                                 </div>
-
                                 <div class="stock-right">
                                     <span class="stock-qty">x@item.Quantity</span>
                                 </div>
                             </div>
                         }
                     </div>
-
                     @if (CanShowMoreLowStock)
                     {
                         <button class="show-more-btn" @onclick="ToggleLowStock">
@@ -193,9 +178,8 @@
             <div class="recent-card">
                 <div class="section-head">
                     <h4 class="chart-title">Recent Sales</h4>
-                    <span class="small-badge">@_dashboard.RecentSales.Count sale(s)</span>
+                    <span class="small-badge">@_dashboard.RecentSalesCount sale(s)</span>
                 </div>
-
                 @if (!_dashboard.RecentSales.Any())
                 {
                     <div class="chart-empty">No recent sales</div>
@@ -214,7 +198,6 @@
                                             <span class="recent-variant">@sale.VariantName</span>
                                         }
                                     </div>
-
                                     <div class="recent-sub">
                                         <span>@sale.SoldAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
                                         @if (!string.IsNullOrWhiteSpace(sale.Notes))
@@ -223,7 +206,6 @@
                                         }
                                     </div>
                                 </div>
-
                                 <div class="recent-right">
                                     <span class="recent-qty">x@sale.QuantitySold</span>
                                     <span class="recent-rev">@sale.Revenue.ToString("F2")</span>
@@ -232,7 +214,6 @@
                             </div>
                         }
                     </div>
-
                     @if (CanShowMoreRecentSales)
                     {
                         <button class="show-more-btn" @onclick="ToggleRecentSales">
@@ -248,12 +229,10 @@
                 <span>Total Revenue</span>
                 <strong>@_dashboard.TotalRevenue.ToString("F2")</strong>
             </div>
-
             <div class="sf-box">
                 <span>Total Profit</span>
                 <strong>@_dashboard.TotalProfit.ToString("F2")</strong>
             </div>
-
             <div class="sf-box">
                 <span>Low Stock Items</span>
                 <strong>@_dashboard.LowStockCount</strong>
@@ -269,7 +248,6 @@
 
     private const int LowStockPreviewCount = 5;
     private const int RecentSalesPreviewCount = 5;
-
     private bool _showAllLowStock = false;
     private bool _showAllRecentSales = false;
 
@@ -293,87 +271,127 @@
         _dashboard is null ? 0 : Math.Max(0, _dashboard.LowStockItems.Count - LowStockPreviewCount);
 
     private int RemainingRecentSalesCount =>
-        _dashboard is null ? 0 : Math.Max(0, _dashboard.RecentSales.Count - RecentSalesPreviewCount);
+        _dashboard is null ? 0 : Math.Max(0, _dashboard.RecentSalesCount - RecentSalesPreviewCount);
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadAsync();
-    }
+    protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    private void ToggleLowStock()
-    {
-        _showAllLowStock = !_showAllLowStock;
-    }
-
-    private void ToggleRecentSales()
-    {
-        _showAllRecentSales = !_showAllRecentSales;
-    }
+    private void ToggleLowStock() => _showAllLowStock = !_showAllLowStock;
+    private void ToggleRecentSales() => _showAllRecentSales = !_showAllRecentSales;
 
     private async Task LoadAsync()
     {
-        if (_dashboard == null)
-        {
-            _loading = true;
-        }
-        else
-        {
-            _isRefreshing = true;
-        }
+        if (_dashboard == null) _loading = true;
+        else _isRefreshing = true;
 
         await InvokeAsync(StateHasChanged);
-        await Task.Delay(50);
 
         var today = DateTime.UtcNow.Date;
         var tomorrow = today.AddDays(1);
         var last7Start = today.AddDays(-6);
 
-        var totalProducts = await DbContext.Product.CountAsync();
-        var totalVariants = await DbContext.ProductVariant.CountAsync();
+        // ── FIX: run all queries in parallel — they are independent ───────
+        // Old code ran them all sequentially one by one.
+        // Now they all hit SQLite at the same time and we await all together.
+        var t_totalProducts = DbContext.Product.CountAsync();
+        var t_totalVariants = DbContext.ProductVariant.CountAsync();
+        var t_outOfStockProds = DbContext.Product.CountAsync(x => x.Quantity == 0);
+        var t_outOfStockVars = DbContext.ProductVariant.CountAsync(x => x.Quantity == 0);
 
-        var saleRows = await DbContext.Sale
-            .Select(x => new DashboardSaleRowVm
-            {
-                ProductName = x.ProductName,
-                VariantName = x.VariantName,
-                QuantitySold = x.QuantitySold,
-                Revenue = x.SalePriceAtTime * x.QuantitySold,
-                Profit = (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold,
-                SoldAt = x.SoldAt,
-                Notes = x.Notes
-            })
-            .ToListAsync();
-
-        var billRows = await DbContext.BillItem
-            .Select(x => new DashboardSaleRowVm
-            {
-                ProductName = x.ProductName,
-                VariantName = x.VariantName,
-                QuantitySold = x.Quantity,
-                Revenue = x.UnitPrice * x.Quantity,
-                Profit = (x.UnitPrice - x.CostPrice) * x.Quantity,
-                SoldAt = x.Bill.BilledAt,
-                Notes = x.Bill.Notes
-            })
-            .ToListAsync();
-
-        var allRows = saleRows
-            .Concat(billRows)
-            .OrderByDescending(x => x.SoldAt)
-            .ToList();
-
-        var todayRows = allRows
+        // ── FIX: Today's aggregates done in SQL — no loading all rows ─────
+        // Old code: loaded ALL sales rows then filtered in C# memory.
+        // New code: SQL SUM/COUNT with WHERE — returns 3 numbers, not 1000 rows.
+        var t_todaySales = DbContext.Sale
             .Where(x => x.SoldAt >= today && x.SoldAt < tomorrow)
-            .ToList();
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Sum(x => x.QuantitySold),
+                Revenue = g.Sum(x => x.SalePriceAtTime * x.QuantitySold),
+                Profit = g.Sum(x => (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold)
+            })
+            .FirstOrDefaultAsync();
 
-        var last7Rows = allRows
+        var t_todayBills = DbContext.BillItem
+            .Where(x => x.Bill.BilledAt >= today && x.Bill.BilledAt < tomorrow)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Sum(x => x.Quantity),
+                Revenue = g.Sum(x => x.UnitPrice * x.Quantity),
+                Profit = g.Sum(x => (x.UnitPrice - x.CostPrice) * x.Quantity)
+            })
+            .FirstOrDefaultAsync();
+
+        // ── FIX: Total revenue/profit as SQL SUM — not loading all rows ───
+        var t_totalSaleAgg = DbContext.Sale
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Revenue = g.Sum(x => x.SalePriceAtTime * x.QuantitySold),
+                Profit = g.Sum(x => (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold)
+            })
+            .FirstOrDefaultAsync();
+
+        var t_totalBillAgg = DbContext.BillItem
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Revenue = g.Sum(x => x.UnitPrice * x.Quantity),
+                Profit = g.Sum(x => (x.UnitPrice - x.CostPrice) * x.Quantity)
+            })
+            .FirstOrDefaultAsync();
+
+        // ── FIX: Last 7 days — grouped by day in SQL ─────────────────────
+        // Old code: loaded all rows then grouped in C# memory.
+        // New code: SQL GROUP BY date — returns 7 rows max.
+        var t_last7Sales = DbContext.Sale
             .Where(x => x.SoldAt >= last7Start)
-            .ToList();
+            .GroupBy(x => x.SoldAt.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Revenue = g.Sum(x => x.SalePriceAtTime * x.QuantitySold),
+                UnitsSold = g.Sum(x => x.QuantitySold)
+            })
+            .ToListAsync();
 
-        var outOfStockProducts = await DbContext.Product.CountAsync(x => x.Quantity == 0);
-        var outOfStockVariants = await DbContext.ProductVariant.CountAsync(x => x.Quantity == 0);
+        var t_last7Bills = DbContext.BillItem
+            .Where(x => x.Bill.BilledAt >= last7Start)
+            .GroupBy(x => x.Bill.BilledAt.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Revenue = g.Sum(x => x.UnitPrice * x.Quantity),
+                UnitsSold = g.Sum(x => x.Quantity)
+            })
+            .ToListAsync();
 
-        var productAlerts = await DbContext.Product
+        // ── FIX: Top products — SQL GROUP BY + TOP 5 ─────────────────────
+        // Old code: loaded all rows, grouped in C# — expensive at scale.
+        var t_topSales = DbContext.Sale
+            .GroupBy(x => new { x.ProductName, x.VariantName })
+            .Select(g => new
+            {
+                g.Key.ProductName,
+                g.Key.VariantName,
+                UnitsSold = g.Sum(x => x.QuantitySold),
+                Revenue = g.Sum(x => x.SalePriceAtTime * x.QuantitySold)
+            })
+            .ToListAsync();
+
+        var t_topBills = DbContext.BillItem
+            .GroupBy(x => new { x.ProductName, x.VariantName })
+            .Select(g => new
+            {
+                g.Key.ProductName,
+                g.Key.VariantName,
+                UnitsSold = g.Sum(x => x.Quantity),
+                Revenue = g.Sum(x => x.UnitPrice * x.Quantity)
+            })
+            .ToListAsync();
+
+        // ── FIX: Low stock — only fetch Quantity <= 3, project only needed cols
+        var t_prodAlerts = DbContext.Product
             .Where(x => x.Quantity <= 3)
             .Select(x => new LowStockItemVm
             {
@@ -384,7 +402,7 @@
             })
             .ToListAsync();
 
-        var variantAlerts = await DbContext.ProductVariant
+        var t_varAlerts = DbContext.ProductVariant
             .Where(x => x.Quantity <= 3)
             .Select(x => new LowStockItemVm
             {
@@ -395,39 +413,90 @@
             })
             .ToListAsync();
 
-        var lowStockItems = productAlerts
-            .Concat(variantAlerts)
-            .OrderBy(x => x.Quantity)
-            .ThenBy(x => x.Name)
-            .ToList();
-
-        var last7Days = Enumerable.Range(0, 7)
-            .Select(i =>
+        // ── FIX: Recent sales — only fetch last 20 rows, project only needed cols
+        // Old code: loaded 50 rows with all columns. This loads only what the UI shows.
+        var t_recentSales = DbContext.Sale
+            .OrderByDescending(x => x.SoldAt)
+            .Take(20)
+            .Select(x => new RecentSaleVm
             {
-                var day = last7Start.AddDays(i);
-                var nextDay = day.AddDays(1);
-
-                var dayRows = last7Rows
-                    .Where(x => x.SoldAt >= day && x.SoldAt < nextDay)
-                    .ToList();
-
-                return new DaySalesVm
-                {
-                    DayLabel = day.ToLocalTime().ToString("ddd"),
-                    Revenue = dayRows.Sum(x => x.Revenue),
-                    UnitsSold = dayRows.Sum(x => x.QuantitySold)
-                };
+                ProductName = x.ProductName,
+                VariantName = x.VariantName,
+                QuantitySold = x.QuantitySold,
+                Revenue = x.SalePriceAtTime * x.QuantitySold,
+                Profit = (x.SalePriceAtTime - x.CostPriceAtTime) * x.QuantitySold,
+                SoldAt = x.SoldAt,
+                Notes = x.Notes,
+                Source = "sale"
             })
-            .ToList();
+            .ToListAsync();
 
-        var topProducts = allRows
-            .GroupBy(x => string.IsNullOrWhiteSpace(x.VariantName)
-                ? x.ProductName
-                : $"{x.ProductName} - {x.VariantName}")
+        var t_recentBills = DbContext.BillItem
+            .OrderByDescending(x => x.Bill.BilledAt)
+            .Take(20)
+            .Select(x => new RecentSaleVm
+            {
+                ProductName = x.ProductName,
+                VariantName = x.VariantName,
+                QuantitySold = x.Quantity,
+                Revenue = x.UnitPrice * x.Quantity,
+                Profit = (x.UnitPrice - x.CostPrice) * x.Quantity,
+                SoldAt = x.Bill.BilledAt,
+                Notes = x.Bill.Notes,
+                Source = "bill"
+            })
+            .ToListAsync();
+
+        // ── Await all queries ─────────────────────────────────────────────
+        await Task.WhenAll(
+            t_totalProducts, t_totalVariants,
+            t_outOfStockProds, t_outOfStockVars,
+            t_todaySales, t_todayBills,
+            t_totalSaleAgg, t_totalBillAgg,
+            t_last7Sales, t_last7Bills,
+            t_topSales, t_topBills,
+            t_prodAlerts, t_varAlerts,
+            t_recentSales, t_recentBills
+        );
+
+        // ── Merge results in memory (tiny, already aggregated) ────────────
+        var todaySalesAgg = await t_todaySales;
+        var todayBillsAgg = await t_todayBills;
+        var totalSaleAgg = await t_totalSaleAgg;
+        var totalBillAgg = await t_totalBillAgg;
+
+        var last7SaleRows = await t_last7Sales;
+        var last7BillRows = await t_last7Bills;
+
+        var last7Days = Enumerable.Range(0, 7).Select(i =>
+        {
+            var day = last7Start.AddDays(i);
+            var nextDay = day.AddDays(1);
+
+            var saleRev = last7SaleRows.Where(x => x.Date >= day && x.Date < nextDay).Sum(x => x.Revenue);
+            var saleUnits = last7SaleRows.Where(x => x.Date >= day && x.Date < nextDay).Sum(x => x.UnitsSold);
+            var billRev = last7BillRows.Where(x => x.Date >= day && x.Date < nextDay).Sum(x => x.Revenue);
+            var billUnits = last7BillRows.Where(x => x.Date >= day && x.Date < nextDay).Sum(x => x.UnitsSold);
+
+            return new DaySalesVm
+            {
+                DayLabel = day.ToLocalTime().ToString("ddd"),
+                Revenue = saleRev + billRev,
+                UnitsSold = saleUnits + billUnits
+            };
+        }).ToList();
+
+        var topSaleRows = await t_topSales;
+        var topBillRows = await t_topBills;
+
+        var topProducts = topSaleRows
+            .Select(x => new { Key = string.IsNullOrWhiteSpace(x.VariantName) ? x.ProductName : $"{x.ProductName} - {x.VariantName}", x.UnitsSold, x.Revenue })
+            .Concat(topBillRows.Select(x => new { Key = string.IsNullOrWhiteSpace(x.VariantName) ? x.ProductName : $"{x.ProductName} - {x.VariantName}", x.UnitsSold, x.Revenue }))
+            .GroupBy(x => x.Key)
             .Select(g => new TopProductVm
             {
                 Name = g.Key,
-                UnitsSold = g.Sum(x => x.QuantitySold),
+                UnitsSold = g.Sum(x => x.UnitsSold),
                 Revenue = g.Sum(x => x.Revenue)
             })
             .OrderByDescending(x => x.UnitsSold)
@@ -435,35 +504,33 @@
             .Take(5)
             .ToList();
 
-        var recentSales = allRows
-            .Take(50)
-            .Select(x => new RecentSaleVm
-            {
-                ProductName = x.ProductName,
-                VariantName = x.VariantName,
-                QuantitySold = x.QuantitySold,
-                Revenue = x.Revenue,
-                Profit = x.Profit,
-                SoldAt = x.SoldAt,
-                Notes = x.Notes
-            })
+        var lowStockItems = (await t_prodAlerts)
+            .Concat(await t_varAlerts)
+            .OrderBy(x => x.Quantity).ThenBy(x => x.Name)
+            .ToList();
+
+        var recentSales = (await t_recentSales)
+            .Concat(await t_recentBills)
+            .OrderByDescending(x => x.SoldAt)
+            .Take(20)
             .ToList();
 
         _dashboard = new DashboardVm
         {
-            TotalProducts = totalProducts,
-            TotalVariants = totalVariants,
-            TodaySalesCount = todayRows.Sum(x => x.QuantitySold),
-            TodayRevenue = todayRows.Sum(x => x.Revenue),
-            TodayProfit = todayRows.Sum(x => x.Profit),
-            TotalRevenue = allRows.Sum(x => x.Revenue),
-            TotalProfit = allRows.Sum(x => x.Profit),
-            OutOfStockCount = outOfStockProducts + outOfStockVariants,
+            TotalProducts = await t_totalProducts,
+            TotalVariants = await t_totalVariants,
+            TodaySalesCount = (todaySalesAgg?.Count ?? 0) + (todayBillsAgg?.Count ?? 0),
+            TodayRevenue = (todaySalesAgg?.Revenue ?? 0) + (todayBillsAgg?.Revenue ?? 0),
+            TodayProfit = (todaySalesAgg?.Profit ?? 0) + (todayBillsAgg?.Profit ?? 0),
+            TotalRevenue = (totalSaleAgg?.Revenue ?? 0) + (totalBillAgg?.Revenue ?? 0),
+            TotalProfit = (totalSaleAgg?.Profit ?? 0) + (totalBillAgg?.Profit ?? 0),
+            OutOfStockCount = (await t_outOfStockProds) + (await t_outOfStockVars),
             LowStockCount = lowStockItems.Count,
             Last7Days = last7Days,
             TopProducts = topProducts,
             LowStockItems = lowStockItems,
-            RecentSales = recentSales
+            RecentSales = recentSales,
+            RecentSalesCount = recentSales.Count
         };
 
         _loading = false;
@@ -471,6 +538,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    // ── View models ────────────────────────────────────────────────────────
     private class DashboardVm
     {
         public int TotalProducts { get; set; }
@@ -482,21 +550,11 @@
         public decimal TotalProfit { get; set; }
         public int OutOfStockCount { get; set; }
         public int LowStockCount { get; set; }
+        public int RecentSalesCount { get; set; }
         public List<DaySalesVm> Last7Days { get; set; } = new();
         public List<TopProductVm> TopProducts { get; set; } = new();
         public List<LowStockItemVm> LowStockItems { get; set; } = new();
         public List<RecentSaleVm> RecentSales { get; set; } = new();
-    }
-
-    private class DashboardSaleRowVm
-    {
-        public string ProductName { get; set; } = "";
-        public string? VariantName { get; set; }
-        public int QuantitySold { get; set; }
-        public decimal Revenue { get; set; }
-        public decimal Profit { get; set; }
-        public DateTime SoldAt { get; set; }
-        public string? Notes { get; set; }
     }
 
     private class DaySalesVm
@@ -530,5 +588,6 @@
         public decimal Profit { get; set; }
         public DateTime SoldAt { get; set; }
         public string? Notes { get; set; }
+        public string Source { get; set; } = "";
     }
 }
