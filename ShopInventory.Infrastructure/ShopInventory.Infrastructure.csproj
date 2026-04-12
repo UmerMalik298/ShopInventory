@@ -1,29 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.1" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
 		<PackageReference Include="NuGet.Packaging" Version="7.3.0" />
 		<PackageReference Include="QuestPDF" Version="2026.2.3" />
-		<PackageReference Include="NuGet.Packaging" Version="7.3.0" />
+		<!-- System.Management deliberately NOT here — only in ShopInventory.App under Windows condition -->
 	</ItemGroup>
 
 	<ItemGroup>
-    <ProjectReference Include="..\ShopInventory.Application\ShopInventory.Application.csproj" />
-    <ProjectReference Include="..\ShopInventory.Domain\ShopInventory.Domain.csproj" />
-  </ItemGroup>
-
-  <PropertyGroup>
-	  <TargetFramework>net9.0</TargetFramework>
-
-	  <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+		<ProjectReference Include="..\ShopInventory.Application\ShopInventory.Application.csproj" />
+		<ProjectReference Include="..\ShopInventory.Domain\ShopInventory.Domain.csproj" />
+	</ItemGroup>
 
 </Project>

@@ -1,4 +1,9 @@
-﻿using System.Management;
+﻿// ================================================================
+// LicenseService.cs — ShopInventory Pro (MAUI - Cross Platform)
+// Supports: net9.0-windows, net9.0-android
+// AL-HAJJ Corporation
+// ================================================================
+
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -32,58 +37,93 @@ namespace ShopInventory.App.Services
 
     public class LicenseService
     {
-        // YOUR SECRET KEY - change this to something only you know
-        // Must match exactly in LicenseKeyGenerator tool
-        private const string SecretKey = "ShopInventory@YourName#2024$SecretKey!";
+        // Must match "SHOP" SecretKey in LicenseKeyGenerator
+        private const string SecretKey = "AlHajj@ShopInventory#2024$SecretKey!";
 
         private static readonly string LicenseFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "AlHajj",
             "ShopInventory",
             "license.dat"
         );
 
-        // Get unique machine fingerprint using hardware info
+        // ── Machine ID (Platform-Aware) ───────────────────────────
         public string GetMachineId()
+        {
+#if WINDOWS
+            return GetWindowsMachineId();
+#elif ANDROID
+            return GetAndroidMachineId();
+#else
+            return GetFallbackMachineId();
+#endif
+        }
+
+#if WINDOWS
+        private string GetWindowsMachineId()
         {
             try
             {
                 var components = new List<string>();
 
                 // CPU ID
-                using (var searcher = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor"))
-                {
-                    foreach (var obj in searcher.Get())
-                        components.Add(obj["ProcessorId"]?.ToString() ?? "");
-                }
+                using (var s = new System.Management.ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor"))
+                    foreach (var o in s.Get())
+                        components.Add(o["ProcessorId"]?.ToString() ?? "");
 
                 // Motherboard serial
-                using (var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard"))
-                {
-                    foreach (var obj in searcher.Get())
-                        components.Add(obj["SerialNumber"]?.ToString() ?? "");
-                }
+                using (var s = new System.Management.ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard"))
+                    foreach (var o in s.Get())
+                        components.Add(o["SerialNumber"]?.ToString() ?? "");
 
-                // Windows installation ID (stable across reboots)
-                using (var searcher = new ManagementObjectSearcher("SELECT UUID FROM Win32_ComputerSystemProduct"))
-                {
-                    foreach (var obj in searcher.Get())
-                        components.Add(obj["UUID"]?.ToString() ?? "");
-                }
+                // Windows System UUID
+                using (var s = new System.Management.ManagementObjectSearcher("SELECT UUID FROM Win32_ComputerSystemProduct"))
+                    foreach (var o in s.Get())
+                        components.Add(o["UUID"]?.ToString() ?? "");
 
                 var combined = string.Join("|", components.Where(c => !string.IsNullOrWhiteSpace(c)));
                 var hash = SHA256.HashData(Encoding.UTF8.GetBytes(combined + SecretKey));
-                return Convert.ToHexString(hash)[..16]; // 16-char machine ID
+                return Convert.ToHexString(hash)[..16];
             }
             catch
             {
-                // Fallback to machine name + username hash
-                var fallback = Environment.MachineName + Environment.UserName;
-                var hash = SHA256.HashData(Encoding.UTF8.GetBytes(fallback + SecretKey));
-                return Convert.ToHexString(hash)[..16];
+                return GetFallbackMachineId();
             }
         }
+#endif
 
-        // Validate a license key entered by client
+#if ANDROID
+        private string GetAndroidMachineId()
+        {
+            try
+            {
+                // Android ID — unique per device+app install, stable and does not require permissions
+                var androidId = Android.Provider.Settings.Secure.GetString(
+                    Android.App.Application.Context.ContentResolver,
+                    Android.Provider.Settings.Secure.AndroidId
+                ) ?? "";
+
+                // Build fingerprint — hardware model + manufacturer (does not change)
+                var buildFingerprint = Android.OS.Build.Fingerprint ?? "";
+                var combined = $"{androidId}|{buildFingerprint}";
+                var hash = SHA256.HashData(Encoding.UTF8.GetBytes(combined + SecretKey));
+                return Convert.ToHexString(hash)[..16];
+            }
+            catch
+            {
+                return GetFallbackMachineId();
+            }
+        }
+#endif
+
+        private string GetFallbackMachineId()
+        {
+            var fallback = Environment.MachineName + Environment.UserName;
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(fallback + SecretKey));
+            return Convert.ToHexString(hash)[..16];
+        }
+
+        // ── Validate a key entered by client ──────────────────────
         public LicenseResult ValidateLicenseKey(string licenseKey)
         {
             try
@@ -99,10 +139,13 @@ namespace ShopInventory.App.Services
                 var machineId = parts[0];
                 var clientName = parts[1];
                 var expiryDate = DateTime.Parse(parts[2]);
-                var currentMachineId = GetMachineId();
 
-                if (machineId != currentMachineId)
-                    return new LicenseResult { Status = LicenseStatus.WrongMachine, Message = "This license key is for a different machine. Contact support." };
+                if (machineId != GetMachineId())
+                    return new LicenseResult
+                    {
+                        Status = LicenseStatus.WrongMachine,
+                        Message = "This license is for a different device. Contact AL-HAJJ support."
+                    };
 
                 if (expiryDate < DateTime.Now)
                     return new LicenseResult
@@ -121,7 +164,6 @@ namespace ShopInventory.App.Services
                 };
 
                 SaveLicense(info, licenseKey);
-
                 return new LicenseResult { Status = LicenseStatus.Valid, Info = info, Message = "License activated successfully." };
             }
             catch
@@ -130,7 +172,7 @@ namespace ShopInventory.App.Services
             }
         }
 
-        // Check license on every app launch
+        // ── Check on every app launch ─────────────────────────────
         public LicenseResult CheckCurrentLicense()
         {
             try
@@ -143,7 +185,6 @@ namespace ShopInventory.App.Services
                 if (saved == null)
                     return new LicenseResult { Status = LicenseStatus.NotActivated, Message = "License file corrupted." };
 
-                // Re-validate the stored key
                 return ValidateLicenseKey(saved.Key);
             }
             catch
@@ -152,31 +193,29 @@ namespace ShopInventory.App.Services
             }
         }
 
+        // ── Helpers ───────────────────────────────────────────────
         private void SaveLicense(LicenseInfo info, string key)
         {
             var dir = Path.GetDirectoryName(LicenseFilePath)!;
             Directory.CreateDirectory(dir);
-            var saved = new SavedLicense { Key = key, SavedAt = DateTime.Now };
-            File.WriteAllText(LicenseFilePath, JsonSerializer.Serialize(saved));
+            File.WriteAllText(LicenseFilePath,
+                JsonSerializer.Serialize(new SavedLicense { Key = key, SavedAt = DateTime.Now }));
         }
 
         private string? DecryptLicenseKey(string key)
         {
             try
             {
-                // Strip only whitespace and newlines (in case of copy/paste artifacts)
                 var base64 = key.Trim()
-                    .Replace("\r", "")
-                    .Replace("\n", "")
-                    .Replace(" ", "")
-                    .Replace("\t", "");
+                    .Replace("\r", "").Replace("\n", "")
+                    .Replace(" ", "").Replace("\t", "");
 
-                // Re-add Base64 padding if missing
                 switch (base64.Length % 4)
                 {
                     case 2: base64 += "=="; break;
                     case 3: base64 += "="; break;
                 }
+
                 var bytes = Convert.FromBase64String(base64);
                 var keyBytes = SHA256.HashData(Encoding.UTF8.GetBytes(SecretKey));
 
@@ -190,10 +229,7 @@ namespace ShopInventory.App.Services
                 var decrypted = decryptor.TransformFinalBlock(bytes, 0, bytes.Length);
                 return Encoding.UTF8.GetString(decrypted);
             }
-            catch
-            {
-                return null;
-            }
+            catch { return null; }
         }
 
         private class SavedLicense
