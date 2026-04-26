@@ -41,6 +41,20 @@ namespace ShopInventory.Infrastructure.Services
         {
             await using var transaction = await _db.Database.BeginTransactionAsync();
 
+            System.Diagnostics.Debug.WriteLine("==== BILL ITEMS DEBUG START ====");
+
+            foreach (var item in bill.Items)
+            {
+                System.Diagnostics.Debug.WriteLine($"Item Name: {item.ProductName}");
+                System.Diagnostics.Debug.WriteLine($"ProductId: {item.ProductId}");
+
+                var exists = await _db.Product.AnyAsync(p => p.Id == item.ProductId);
+                System.Diagnostics.Debug.WriteLine($"Exists in DB: {exists}");
+
+                System.Diagnostics.Debug.WriteLine("--------------------------------");
+            }
+
+            System.Diagnostics.Debug.WriteLine("==== BILL ITEMS DEBUG END ====");
             // Normal products only
             var productRequests = bill.Items
                 .Where(i => i.ProductId != Guid.Empty && !i.ProductVariantId.HasValue)
