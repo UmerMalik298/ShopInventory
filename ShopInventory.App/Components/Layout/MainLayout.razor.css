@@ -440,3 +440,16 @@
 .content-wrap {
     padding: 0;
 }
+.splash-shop-logo {
+    width: 110px;
+    height: 110px;
+    object-fit: contain;
+    border-radius: 18px;
+}
+
+.activation-shop-logo {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    border-radius: 8px;
+}

@@ -60,6 +60,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <MauiXaml Update="ShopSetupPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	</ItemGroup>
+
+	<ItemGroup>
 		<None Update="SumatraPDF.exe">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>

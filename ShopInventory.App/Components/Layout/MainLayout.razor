@@ -1,31 +1,47 @@
 ﻿@inherits LayoutComponentBase
 @using ShopInventory.App.Services
 @inject LicenseService LicenseService
+@inject ShopSettingsService ShopSettingsService
+
 
 @if (appState == AppState.Splash)
 {
     <!-- SPLASH SCREEN -->
     <div class="splash-screen @(splashFading ? "fade-out" : "")">
         <div class="splash-content">
-            <div class="gear-wrap">
-                <svg class="gear-spin" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="#cc0000" d="M43.3 5.6l-3.1 9.5c-2.3.6-4.5 1.5-6.5 2.7L24.4 13l-9 9 4.8 9.3c-1.2 2-2.1 4.2-2.7 6.5l-9.5 3.1v12.7l9.5 3.1c.6 2.3 1.5 4.5 2.7 6.5L15.4 73l9 9 9.3-4.8c2 1.2 4.2 2.1 6.5 2.7l3.1 9.5h12.7l3.1-9.5c2.3-.6 4.5-1.5 6.5-2.7l9.3 4.8 9-9-4.8-9.3c1.2-2 2.1-4.2 2.7-6.5l9.5-3.1V43.3l-9.5-3.1c-.6-2.3-1.5-4.5-2.7-6.5l4.8-9.3-9-9-9.3 4.8c-2-1.2-4.2-2.1-6.5-2.7l-3.1-9.5H43.3zM50 34c8.8 0 16 7.2 16 16s-7.2 16-16 16-16-7.2-16-16 7.2-16 16-16z"/>
-                    <circle fill="#1a1a1a" cx="50" cy="50" r="10"/>
-                </svg>
-                <svg class="wrench" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="#888" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-                </svg>
-            </div>
+           <div class="gear-wrap">
+    @if (!string.IsNullOrWhiteSpace(shopLogo))
+    {
+        <img
+            src="@shopLogo"
+            alt="@shopName"
+            class="splash-shop-logo" />
+    }
+    else
+    {
+        <svg
+            class="gear-spin"
+            viewBox="0 0 100 100"
+            xmlns="http://www.w3.org/2000/svg">
 
-            <div class="splash-title-wrap">
-                <div class="splash-arabic">شیر ربانی آٹوز</div>
-                <div class="splash-divider">
-                    <span class="divider-line"></span>
-                    <span class="divider-text">Sheer Rabbani Autos</span>
-                    <span class="divider-line"></span>
-                </div>
-                <div class="splash-sub">Inventory & Billing System</div>
-            </div>
+            <path
+                fill="#cc0000"
+                d="M43.3 5.6l-3.1 9.5c-2.3.6-4.5 1.5-6.5 2.7L24.4 13l-9 9 4.8 9.3c-1.2 2-2.1 4.2-2.7 6.5l-9.5 3.1v12.7l9.5 3.1c.6 2.3 1.5 4.5 2.7 6.5L15.4 73l9 9 9.3-4.8c2 1.2 4.2 2.1 6.5 2.7l3.1 9.5h12.7l3.1-9.5c2.3-.6 4.5-1.5 6.5-2.7l9.3 4.8 9-9-4.8-9.3c1.2-2 2.1-4.2 2.7-6.5l9.5-3.1V43.3l-9.5-3.1c-.6-2.3-1.5-4.5-2.7-6.5l4.8-9.3-9-9-9.3 4.8c-2-1.2-4.2-2.1-6.5-2.7l-3.1-9.5H43.3z" />
+        </svg>
+    }
+</div>
+
+           <div class="splash-title-wrap">
+    <div class="splash-divider">
+        <span class="divider-line"></span>
+        <span class="divider-text">@shopName</span>
+        <span class="divider-line"></span>
+    </div>
+
+    <div class="splash-sub">
+        Inventory &amp; Billing System
+    </div>
+</div>
 
             <div class="splash-loader">
                 <div class="loader-bar"></div>
@@ -38,17 +54,34 @@ else if (appState == AppState.Activation)
     <!-- LICENSE ACTIVATION SCREEN -->
     <div class="activate-page">
         <div class="activate-card">
-            <div class="app-logo">
-                <div class="logo-icon">
-                    <svg viewBox="0 0 100 100" width="32" height="32">
-                        <path fill="#cc0000" d="M43.3 5.6l-3.1 9.5c-2.3.6-4.5 1.5-6.5 2.7L24.4 13l-9 9 4.8 9.3c-1.2 2-2.1 4.2-2.7 6.5l-9.5 3.1v12.7l9.5 3.1c.6 2.3 1.5 4.5 2.7 6.5L15.4 73l9 9 9.3-4.8c2 1.2 4.2 2.1 6.5 2.7l3.1 9.5h12.7l3.1-9.5c2.3-.6 4.5-1.5 6.5-2.7l9.3 4.8 9-9-4.8-9.3c1.2-2 2.1-4.2 2.7-6.5l9.5-3.1V43.3l-9.5-3.1c-.6-2.3-1.5-4.5-2.7-6.5l4.8-9.3-9-9-9.3 4.8c-2-1.2-4.2-2.1-6.5-2.7l-3.1-9.5H43.3z"/>
-                    </svg>
-                </div>
-                <div>
-                    <div class="app-name">Sheer Rabbani Autos</div>
-                    <div class="app-tagline">Inventory & Billing System</div>
-                </div>
-            </div>
+           <div class="app-logo">
+
+    <div class="logo-icon">
+        @if (!string.IsNullOrWhiteSpace(shopLogo))
+        {
+            <img
+                src="@shopLogo"
+                alt="@shopName"
+                class="activation-shop-logo" />
+        }
+        else
+        {
+            <svg viewBox="0 0 100 100" width="32" height="32">
+                <path
+                    fill="#cc0000"
+                    d="M43.3 5.6l-3.1 9.5c-2.3.6-4.5 1.5-6.5 2.7L24.4 13l-9 9 4.8 9.3c-1.2 2-2.1 4.2-2.7 6.5l-9.5 3.1v12.7l9.5 3.1c.6 2.3 1.5 4.5 2.7 6.5L15.4 73l9 9 9.3-4.8c2 1.2 4.2 2.1 6.5 2.7l3.1 9.5h12.7l3.1-9.5c2.3-.6 4.5-1.5 6.5-2.7l9.3 4.8 9-9-4.8-9.3c1.2-2 2.1-4.2 2.7-6.5l9.5-3.1V43.3l-9.5-3.1c-.6-2.3-1.5-4.5-2.7-6.5l4.8-9.3-9-9-9.3 4.8c-2-1.2-4.2-2.1-6.5-2.7l-3.1-9.5H43.3z" />
+            </svg>
+        }
+    </div>
+
+    <div>
+        <div class="app-name">@shopName</div>
+        <div class="app-tagline">
+            Inventory &amp; Billing System
+        </div>
+    </div>
+
+</div>
 
             @if (licenseMessage != "")
             {
@@ -108,7 +141,8 @@ else
 
 @code {
     private enum AppState { Splash, Activation, App }
-
+    private string shopName = "Shop Inventory";
+private string? shopLogo;
     private AppState appState = AppState.Splash;
     private bool splashFading = false;
     private string machineId = "";
@@ -121,29 +155,40 @@ else
     private bool copied = false;
 
     protected override async Task OnInitializedAsync()
+{
+    var settings = await ShopSettingsService.GetSettingsAsync();
+
+    if (settings is not null &&
+        !string.IsNullOrWhiteSpace(settings.ShopName))
     {
-        machineId = LicenseService.GetMachineId();
-
-        // Show splash for 3 seconds
-        await Task.Delay(2800);
-        splashFading = true;
-        StateHasChanged();
-        await Task.Delay(500);
-
-        // Check license
-        var result = LicenseService.CheckCurrentLicense();
-        if (result.IsValid)
-        {
-            appState = AppState.App;
-        }
-        else
-        {
-            appState = AppState.Activation;
-            SetLicenseAlert(result.Status);
-        }
-
-        StateHasChanged();
+        shopName = settings.ShopName;
     }
+
+    shopLogo = await ShopSettingsService.GetLogoDataUrlAsync();
+
+    machineId = LicenseService.GetMachineId();
+
+    await Task.Delay(2800);
+
+    splashFading = true;
+    StateHasChanged();
+
+    await Task.Delay(500);
+
+    var result = LicenseService.CheckCurrentLicense();
+
+    if (result.IsValid)
+    {
+        appState = AppState.App;
+    }
+    else
+    {
+        appState = AppState.Activation;
+        SetLicenseAlert(result.Status);
+    }
+
+    StateHasChanged();
+}
 
     private void SetLicenseAlert(LicenseStatus status)
     {

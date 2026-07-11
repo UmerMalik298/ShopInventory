@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<ContentPage
+    x:Class="ShopInventory.App.ShopSetupPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Shop Setup">
+
+    <Grid Padding="40">
+
+        <VerticalStackLayout
+            MaximumWidthRequest="500"
+            HorizontalOptions="Center"
+            VerticalOptions="Center"
+            Spacing="20">
+
+            <Label
+                Text="Configure your shop"
+                FontSize="30"
+                FontAttributes="Bold"
+                HorizontalOptions="Center" />
+
+            <Label
+                Text="Enter the shop name and select its logo."
+                HorizontalTextAlignment="Center" />
+
+            <Entry
+                x:Name="ShopNameEntry"
+                Placeholder="Enter shop name"
+                FontSize="18" />
+
+            <Border
+                HeightRequest="180"
+                Padding="10"
+                StrokeThickness="1">
+
+                <Image
+                    x:Name="LogoPreview"
+                    Aspect="AspectFit" />
+
+            </Border>
+
+            <Button
+                Text="Select logo"
+                Clicked="OnSelectLogoClicked" />
+
+            <Button
+                Text="Save and continue"
+                Clicked="OnSaveClicked" />
+
+            <ActivityIndicator
+                x:Name="Loader"
+                IsVisible="False"
+                IsRunning="False"
+                HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentPage>

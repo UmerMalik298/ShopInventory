@@ -1,4 +1,7 @@
-﻿@inject ShopInventory.Infrastructure.Services.CartService CartService
+﻿@using ShopInventory.App.Services
+@inject ShopSettingsService ShopSettingsService
+@inject ShopInventory.Infrastructure.Services.CartService CartService
+@inject ShopInventory.Infrastructure.Services.CartService CartService
 @implements IDisposable
 
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -7,17 +10,20 @@
 
     <a href="/" class="nav-logo-link">
         <div class="nav-logo">
-            <div class="logo-gear-wrap">
-                <svg class="logo-gear" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="#cc0000" d="M43.3 5.6l-3.1 9.5c-2.3.6-4.5 1.5-6.5 2.7L24.4 13l-9 9 4.8 9.3c-1.2 2-2.1 4.2-2.7 6.5l-9.5 3.1v12.7l9.5 3.1c.6 2.3 1.5 4.5 2.7 6.5L15.4 73l9 9 9.3-4.8c2 1.2 4.2 2.1 6.5 2.7l3.1 9.5h12.7l3.1-9.5c2.3-.6 4.5-1.5 6.5-2.7l9.3 4.8 9-9-4.8-9.3c1.2-2 2.1-4.2 2.7-6.5l9.5-3.1V43.3l-9.5-3.1c-.6-2.3-1.5-4.5-2.7-6.5l4.8-9.3-9-9-9.3 4.8c-2-1.2-4.2-2.1-6.5-2.7l-3.1-9.5H43.3zM50 34c8.8 0 16 7.2 16 16s-7.2 16-16 16-16-7.2-16-16 7.2-16 16-16z" />
-                    <circle fill="#1a1a1a" cx="50" cy="50" r="10" />
-                </svg>
-            </div>
+
+            @if (!string.IsNullOrWhiteSpace(shopLogo))
+            {
+                <div class="shop-logo-wrap">
+                    <img src="@shopLogo"
+                         alt="@shopName"
+                         class="shop-logo-image" />
+                </div>
+            }
+
             <div class="logo-text-wrap">
-                <div class="logo-arabic">شیر ربانی آٹوز</div>
-                <div class="logo-name">Sheer Rabbani</div>
-                <div class="logo-autos">AUTOS</div>
+                <div class="logo-name">@shopName</div>
             </div>
+
         </div>
     </a>
 
@@ -142,6 +148,9 @@
 }
 
 @code {
+
+    private string shopName = "Shop Inventory";
+private string? shopLogo;
     private bool showCloseWarning = false;
 
     // ── Sync state ──
@@ -153,11 +162,19 @@
         : "Never synced";
 
     [Inject] private ShopInventory.Application.Interfaces.ISyncService SyncService { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
-        // var status = await SyncService.GetLastSyncStatusAsync();
-        // _lastSyncedAt = status.LastSyncedAt;
+        CartService.OnCartChanged += OnCartUpdated;
+
+        var settings = await ShopSettingsService.GetSettingsAsync();
+
+        if (settings is not null &&
+            !string.IsNullOrWhiteSpace(settings.ShopName))
+        {
+            shopName = settings.ShopName;
+        }
+
+        shopLogo = await ShopSettingsService.GetLogoDataUrlAsync();
     }
 
     private async Task ManualSync()
@@ -187,10 +204,6 @@
     }
     [Inject] NavigationManager Navigation { get; set; } = default!;
 
-    protected override void OnInitialized()
-    {
-        CartService.OnCartChanged += OnCartUpdated;
-    }
 
     private void OnCartUpdated()
     {

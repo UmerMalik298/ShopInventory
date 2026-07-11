@@ -334,6 +334,40 @@
     animation: spin .7s linear infinite;
 }
 
+.receipt-header {
+    text-align: center;
+    padding-bottom: 18px;
+    border-bottom: 1px dashed #d1d5db;
+}
+
+.receipt-shop-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    margin: 0 auto 10px;
+    display: block;
+}
+
+.shop-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.shop-sub {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.corporation-label {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #9ca3af;
+    letter-spacing: 0.05em;
+}
+
+
 @keyframes spin {
     to {
         transform: rotate(360deg);

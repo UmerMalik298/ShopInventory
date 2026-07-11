@@ -100,6 +100,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<BillPdfService>();
         builder.Services.AddSingleton<CartService>();
 
+        builder.Services.AddSingleton<ShopSettingsService>();
+        builder.Services.AddTransient<ShopSetupPage>();
+        builder.Services.AddTransient<MainPage>();
+
         builder.Logging.AddDebug();
 
         var app = builder.Build();

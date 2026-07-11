@@ -8,6 +8,8 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject ShopInventory.App.Services.BillPdfService BillPdfService
+@using ShopInventory.App.Services
+@inject ShopSettingsService ShopSettingsService
 
 <div class="bill-detail-page" id="bill-detail-page">
 
@@ -110,8 +112,24 @@
             <div class="receipt">
 
                 <div class="receipt-header">
-                    <div class="shop-name">Sheer Rabbani Autos</div>
-                    <div class="shop-sub">Receipt / Invoice</div>
+
+                    @if (!string.IsNullOrWhiteSpace(shopLogo))
+                    {
+                        <img src="@shopLogo"
+                             alt="@shopName"
+                             class="receipt-shop-logo" />
+                    }
+
+                    <div class="shop-name">@shopName</div>
+
+                    <div class="shop-sub">
+                        Receipt / Invoice
+                    </div>
+
+                    <div class="corporation-label">
+                        Software by Al-Hajj Corporation
+                    </div>
+
                 </div>
 
                 <div class="receipt-meta">
@@ -256,6 +274,10 @@
     private bool isLoading = true;
     private bool isDeducting = false;
 
+
+    private string shopName = "Shop Inventory";
+    private string? shopLogo;
+
     // Dialog states
     private bool showDeductConfirm = false;
     private bool showAlreadyDeductedDialog = false;
@@ -265,6 +287,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var settings = await ShopSettingsService.GetSettingsAsync();
+
+        if (settings is not null &&
+            !string.IsNullOrWhiteSpace(settings.ShopName))
+        {
+            shopName = settings.ShopName;
+        }
+
+        shopLogo = await ShopSettingsService.GetLogoDataUrlAsync();
+
         bill = await BillService.GetBillByIdAsync(Id);
         isLoading = false;
     }
@@ -395,7 +427,7 @@
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("========================================");
-        sb.AppendLine("           SHEER RABBANI AUTOS");
+        sb.AppendLine($"           {shopName.ToUpperInvariant()}");
         sb.AppendLine("              RECEIPT");
         sb.AppendLine("========================================");
         sb.AppendLine($"Bill No : {bill!.BillNo}");
