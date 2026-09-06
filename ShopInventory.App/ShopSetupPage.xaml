@@ -4,58 +4,129 @@
     x:Class="ShopInventory.App.ShopSetupPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="Shop Setup">
+    Title="Shop Setup"
+    BackgroundColor="#0F172A">
 
-    <Grid Padding="40">
+    <ScrollView>
+        <Grid Padding="30">
+            <VerticalStackLayout
+                MaximumWidthRequest="520"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                Spacing="18">
 
-        <VerticalStackLayout
-            MaximumWidthRequest="500"
-            HorizontalOptions="Center"
-            VerticalOptions="Center"
-            Spacing="20">
+                <Label
+                    Text="🏪 Configure Your Shop"
+                    FontSize="28"
+                    FontAttributes="Bold"
+                    TextColor="White"
+                    HorizontalOptions="Center" />
 
-            <Label
-                Text="Configure your shop"
-                FontSize="30"
-                FontAttributes="Bold"
-                HorizontalOptions="Center" />
+                <Label
+                    Text="Customize your shop brand name, logo, and theme color."
+                    TextColor="#94A3B8"
+                    FontSize="13"
+                    HorizontalTextAlignment="Center" />
 
-            <Label
-                Text="Enter the shop name and select its logo."
-                HorizontalTextAlignment="Center" />
+                <!-- Shop Name -->
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Shop / Company Name *" TextColor="#E2E8F0" FontSize="13" FontAttributes="Bold" />
+                    <Border BackgroundColor="#1E293B" Stroke="#334155" StrokeThickness="1" Padding="12,4">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                        <Entry
+                            x:Name="ShopNameEntry"
+                            Placeholder="e.g. Sheer Rabbani Autos"
+                            PlaceholderColor="#64748B"
+                            TextColor="White"
+                            FontSize="16" />
+                    </Border>
+                </VerticalStackLayout>
 
-            <Entry
-                x:Name="ShopNameEntry"
-                Placeholder="Enter shop name"
-                FontSize="18" />
+                <!-- Shop Logo -->
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Shop Logo *" TextColor="#E2E8F0" FontSize="13" FontAttributes="Bold" />
+                    <Border
+                        HeightRequest="150"
+                        Padding="10"
+                        BackgroundColor="#1E293B"
+                        Stroke="#334155"
+                        StrokeThickness="1">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                        <Image
+                            x:Name="LogoPreview"
+                            Aspect="AspectFit" />
+                    </Border>
 
-            <Border
-                HeightRequest="180"
-                Padding="10"
-                StrokeThickness="1">
+                    <Button
+                        Text="📁 Browse &amp; Select Logo"
+                        BackgroundColor="#334155"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        CornerRadius="8"
+                        HeightRequest="42"
+                        Clicked="OnSelectLogoClicked" />
+                </VerticalStackLayout>
 
-                <Image
-                    x:Name="LogoPreview"
-                    Aspect="AspectFit" />
+                <!-- Theme Color Selection -->
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="Brand Theme Color *" TextColor="#E2E8F0" FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Border Grid.Column="1" x:Name="SelectedColorIndicator" WidthRequest="26" HeightRequest="26" BackgroundColor="#CC0000" Stroke="White" StrokeThickness="2">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="13" /></Border.StrokeShape>
+                        </Border>
+                    </Grid>
 
-            </Border>
+                    <Label Text="Choose a primary color that will define your application UI theme:" TextColor="#64748B" FontSize="11" />
 
-            <Button
-                Text="Select logo"
-                Clicked="OnSelectLogoClicked" />
+                    <!-- Preset Color Swatches -->
+                    <FlexLayout Wrap="Wrap" JustifyContent="SpaceBetween" AlignItems="Center">
+                        <Button Text="🔴 Red" BackgroundColor="#CC0000" TextColor="White" FontSize="11" FontAttributes="Bold" CornerRadius="8" HeightRequest="36" Margin="2" Clicked="OnPresetColorClicked" CommandParameter="#CC0000" />
+                        <Button Text="🔵 Blue" BackgroundColor="#2563EB" TextColor="White" FontSize="11" FontAttributes="Bold" CornerRadius="8" HeightRequest="36" Margin="2" Clicked="OnPresetColorClicked" CommandParameter="#2563EB" />
+                        <Button Text="🟢 Green" BackgroundColor="#059669" TextColor="White" FontSize="11" FontAttributes="Bold" CornerRadius="8" HeightRequest="36" Margin="2" Clicked="OnPresetColorClicked" CommandParameter="#059669" />
+                        <Button Text="🟣 Purple" BackgroundColor="#7C3AED" TextColor="White" FontSize="11" FontAttributes="Bold" CornerRadius="8" HeightRequest="36" Margin="2" Clicked="OnPresetColorClicked" CommandParameter="#7C3AED" />
+                        <Button Text="🟠 Amber" BackgroundColor="#D97706" TextColor="White" FontSize="11" FontAttributes="Bold" CornerRadius="8" HeightRequest="36" Margin="2" Clicked="OnPresetColorClicked" CommandParameter="#D97706" />
+                        <Button Text="🔷 Teal" BackgroundColor="#0D9488" TextColor="White" FontSize="11" FontAttributes="Bold" CornerRadius="8" HeightRequest="36" Margin="2" Clicked="OnPresetColorClicked" CommandParameter="#0D9488" />
+                    </FlexLayout>
 
-            <Button
-                Text="Save and continue"
-                Clicked="OnSaveClicked" />
+                    <!-- Custom Hex Input -->
+                    <Border BackgroundColor="#1E293B" Stroke="#334155" StrokeThickness="1" Padding="10,2" Margin="0,4,0,0">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Grid.Column="0" Text="HEX:" TextColor="#64748B" FontSize="12" FontAttributes="Bold" VerticalOptions="Center" Margin="0,0,8,0" />
+                            <Entry
+                                Grid.Column="1"
+                                x:Name="ColorHexEntry"
+                                Text="#CC0000"
+                                TextColor="White"
+                                FontSize="14"
+                                TextChanged="OnHexColorChanged"
+                                Placeholder="#RRGGBB"
+                                PlaceholderColor="#64748B" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
 
-            <ActivityIndicator
-                x:Name="Loader"
-                IsVisible="False"
-                IsRunning="False"
-                HorizontalOptions="Center" />
+                <!-- Save Button -->
+                <Button
+                    x:Name="SaveButton"
+                    Text="💾 Save &amp; Continue to App"
+                    BackgroundColor="#CC0000"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    FontSize="16"
+                    CornerRadius="10"
+                    HeightRequest="48"
+                    Margin="0,10,0,0"
+                    Clicked="OnSaveClicked" />
 
-        </VerticalStackLayout>
+                <ActivityIndicator
+                    x:Name="Loader"
+                    IsVisible="False"
+                    IsRunning="False"
+                    Color="White"
+                    HorizontalOptions="Center" />
 
-    </Grid>
-
+            </VerticalStackLayout>
+        </Grid>
+    </ScrollView>
 </ContentPage>

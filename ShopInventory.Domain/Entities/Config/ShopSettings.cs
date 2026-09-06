@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +11,8 @@ namespace ShopInventory.Domain.Entities.Config
         public string ShopName { get; set; } = string.Empty;
 
         public string LogoPath { get; set; } = string.Empty;
+
+        public string ThemeColor { get; set; } = "#cc0000";
 
         public bool IsConfigured { get; set; }
     }

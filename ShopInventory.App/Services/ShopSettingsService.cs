@@ -1,4 +1,4 @@
-﻿using ShopInventory.Domain.Entities.Config;
+using ShopInventory.Domain.Entities.Config;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +36,8 @@ namespace ShopInventory.App.Services
 
         public async Task SaveSettingsAsync(
             string shopName,
-            string selectedLogoPath)
+            string selectedLogoPath,
+            string themeColor = "#cc0000")
         {
             if (string.IsNullOrWhiteSpace(shopName))
             {
@@ -75,6 +76,7 @@ namespace ShopInventory.App.Services
             {
                 ShopName = shopName.Trim(),
                 LogoPath = savedLogoPath,
+                ThemeColor = string.IsNullOrWhiteSpace(themeColor) ? "#cc0000" : themeColor.Trim(),
                 IsConfigured = true
             };
 

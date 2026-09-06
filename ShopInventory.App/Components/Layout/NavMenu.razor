@@ -1,10 +1,25 @@
-﻿@using ShopInventory.App.Services
+@using ShopInventory.App.Services
 @inject ShopSettingsService ShopSettingsService
-@inject ShopInventory.Infrastructure.Services.CartService CartService
 @inject ShopInventory.Infrastructure.Services.CartService CartService
 @implements IDisposable
 
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+    .nav-item.active {
+        color: @themeColor !important;
+        border-color: @themeColor !important;
+    }
+    .nav-item.active .nav-dot, .nav-dot.dot-active {
+        background: @themeColor !important;
+    }
+    .cart-badge {
+        background: @themeColor !important;
+    }
+    .shop-logo-wrap {
+        border-color: @themeColor !important;
+    }
+</style>
 
 <div class="nav-shell">
 
@@ -150,7 +165,8 @@
 @code {
 
     private string shopName = "Shop Inventory";
-private string? shopLogo;
+    private string? shopLogo;
+    private string themeColor = "#cc0000";
     private bool showCloseWarning = false;
 
     // ── Sync state ──
@@ -168,10 +184,16 @@ private string? shopLogo;
 
         var settings = await ShopSettingsService.GetSettingsAsync();
 
-        if (settings is not null &&
-            !string.IsNullOrWhiteSpace(settings.ShopName))
+        if (settings is not null)
         {
-            shopName = settings.ShopName;
+            if (!string.IsNullOrWhiteSpace(settings.ShopName))
+            {
+                shopName = settings.ShopName;
+            }
+            if (!string.IsNullOrWhiteSpace(settings.ThemeColor))
+            {
+                themeColor = settings.ThemeColor;
+            }
         }
 
         shopLogo = await ShopSettingsService.GetLogoDataUrlAsync();

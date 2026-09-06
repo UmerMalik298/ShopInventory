@@ -1,4 +1,4 @@
-﻿// ================================================================
+// ================================================================
 // AL-HAJJ Corporation — License Key Generator
 // Your Company  : AL-HAJJ Corporation
 // Your Clients  : SheerRabbani (ShopInventory), Gujjar (PetrolPump)
@@ -25,6 +25,16 @@ var clientSoftware = new List<ClientSoftware>
     new ClientSoftware
     {
         Id          = 2,
+        ClientName  = "Tailor Master Client",
+        SoftwareName = "Tailor Master Pro",
+        Description = "Tailor & Garment Measurement Management",
+        Code        = "TAILOR",
+        SecretKey   = "AlHajj@TailorMaster#2024$SecretKey!",
+        IdMethod    = MachineIdMethod.MauiDeviceInfo
+    },
+    new ClientSoftware
+    {
+        Id          = 3,
         ClientName  = "Gujjar Petroleum",
         SoftwareName = "PetrolPump Manager",
         Description = "Petrol Pump & Fuel Station Management",
@@ -32,17 +42,6 @@ var clientSoftware = new List<ClientSoftware>
         SecretKey   = "GujjarPetroleum@UmerFarooq#2024$PK!",
         IdMethod    = MachineIdMethod.MauiDeviceInfo
     },
-    // ── Add future clients here ───────────────────────────────────
-    // new ClientSoftware
-    // {
-    //     Id          = 3,
-    //     ClientName  = "ABC Pharmacy",
-    //     SoftwareName = "PharmaCare",
-    //     Description = "Pharmacy & Medicine Inventory",
-    //     Code        = "PHARM",
-    //     SecretKey   = "AlHajj@PharmaCare#2024$SecretKey!",
-    //     IdMethod    = MachineIdMethod.MauiDeviceInfo
-    // },
 };
 
 // ── Main ──────────────────────────────────────────────────────────

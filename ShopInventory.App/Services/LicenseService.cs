@@ -1,4 +1,4 @@
-﻿// ================================================================
+// ================================================================
 // LicenseService.cs — ShopInventory Pro (MAUI - Cross Platform)
 // Supports: net9.0-windows, net9.0-android
 // AL-HAJJ Corporation
@@ -33,6 +33,9 @@ namespace ShopInventory.App.Services
         public LicenseInfo? Info { get; set; }
         public string Message { get; set; } = "";
         public bool IsValid => Status == LicenseStatus.Valid;
+        public bool IsTrial { get; set; }
+        public int DaysRemaining { get; set; }
+        public bool CanStartTrial { get; set; } = true;
     }
 
     public class LicenseService
@@ -45,6 +48,13 @@ namespace ShopInventory.App.Services
             "AlHajj",
             "ShopInventory",
             "license.dat"
+        );
+
+        private static readonly string TrialFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "AlHajj",
+            "ShopInventory",
+            "trial.dat"
         );
 
         // ── Machine ID (Platform-Aware) ───────────────────────────
@@ -172,25 +182,169 @@ namespace ShopInventory.App.Services
             }
         }
 
+        // ── 7-Day Free Trial Support ─────────────────────────────
+        public bool CanStartTrial()
+        {
+            return !File.Exists(TrialFilePath);
+        }
+
+        public LicenseResult StartTrial()
+        {
+            if (!CanStartTrial())
+            {
+                return new LicenseResult
+                {
+                    Status = LicenseStatus.Expired,
+                    Message = "Free trial has already been used on this device. Please purchase a license.",
+                    CanStartTrial = false
+                };
+            }
+
+            try
+            {
+                var machineId = GetMachineId();
+                var now = DateTime.Now;
+                var expiry = now.AddDays(7);
+                var sigInput = $"{machineId}|{now:yyyy-MM-dd HH:mm:ss}|{expiry:yyyy-MM-dd HH:mm:ss}|{SecretKey}";
+                var sig = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sigInput)));
+
+                var trial = new TrialData
+                {
+                    MachineId = machineId,
+                    StartDate = now,
+                    ExpiryDate = expiry,
+                    Signature = sig
+                };
+
+                var dir = Path.GetDirectoryName(TrialFilePath)!;
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(TrialFilePath, JsonSerializer.Serialize(trial, new JsonSerializerOptions { WriteIndented = true }));
+
+                var info = new LicenseInfo
+                {
+                    ClientName = "7-Day Free Trial",
+                    MachineId = machineId,
+                    ExpiryDate = expiry,
+                    ActivatedOn = now
+                };
+
+                return new LicenseResult
+                {
+                    Status = LicenseStatus.Valid,
+                    Info = info,
+                    IsTrial = true,
+                    DaysRemaining = 7,
+                    CanStartTrial = false,
+                    Message = "7-Day Free Trial activated successfully!"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new LicenseResult
+                {
+                    Status = LicenseStatus.NotActivated,
+                    Message = $"Failed to activate free trial: {ex.Message}",
+                    CanStartTrial = true
+                };
+            }
+        }
+
         // ── Check on every app launch ─────────────────────────────
         public LicenseResult CheckCurrentLicense()
         {
+            // 1. Check paid license first
             try
             {
-                if (!File.Exists(LicenseFilePath))
-                    return new LicenseResult { Status = LicenseStatus.NotActivated, Message = "No license found. Please activate." };
-
-                var json = File.ReadAllText(LicenseFilePath);
-                var saved = JsonSerializer.Deserialize<SavedLicense>(json);
-                if (saved == null)
-                    return new LicenseResult { Status = LicenseStatus.NotActivated, Message = "License file corrupted." };
-
-                return ValidateLicenseKey(saved.Key);
+                if (File.Exists(LicenseFilePath))
+                {
+                    var json = File.ReadAllText(LicenseFilePath);
+                    var saved = JsonSerializer.Deserialize<SavedLicense>(json);
+                    if (saved != null)
+                    {
+                        var result = ValidateLicenseKey(saved.Key);
+                        if (result.IsValid)
+                        {
+                            result.CanStartTrial = false;
+                            if (result.Info != null)
+                            {
+                                result.DaysRemaining = Math.Max(0, (result.Info.ExpiryDate.Date - DateTime.Now.Date).Days);
+                            }
+                            return result;
+                        }
+                        else if (result.Status == LicenseStatus.Expired)
+                        {
+                            result.CanStartTrial = false;
+                            return result;
+                        }
+                    }
+                }
             }
             catch
             {
-                return new LicenseResult { Status = LicenseStatus.NotActivated, Message = "Could not read license." };
+                // Fall through to trial check
             }
+
+            // 2. Check 7-day free trial
+            try
+            {
+                if (File.Exists(TrialFilePath))
+                {
+                    var json = File.ReadAllText(TrialFilePath);
+                    var trial = JsonSerializer.Deserialize<TrialData>(json);
+                    if (trial != null)
+                    {
+                        var machineId = GetMachineId();
+                        var sigInput = $"{trial.MachineId}|{trial.StartDate:yyyy-MM-dd HH:mm:ss}|{trial.ExpiryDate:yyyy-MM-dd HH:mm:ss}|{SecretKey}";
+                        var expectedSig = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sigInput)));
+
+                        if (trial.MachineId == machineId && trial.Signature == expectedSig)
+                        {
+                            var now = DateTime.Now;
+                            if (now <= trial.ExpiryDate)
+                            {
+                                var daysRemaining = Math.Max(0, (trial.ExpiryDate.Date - now.Date).Days);
+                                return new LicenseResult
+                                {
+                                    Status = LicenseStatus.Valid,
+                                    IsTrial = true,
+                                    DaysRemaining = daysRemaining,
+                                    CanStartTrial = false,
+                                    Info = new LicenseInfo
+                                    {
+                                        ClientName = "7-Day Free Trial",
+                                        MachineId = machineId,
+                                        ExpiryDate = trial.ExpiryDate,
+                                        ActivatedOn = trial.StartDate
+                                    },
+                                    Message = $"Free Trial active ({daysRemaining} days remaining)."
+                                };
+                            }
+                            else
+                            {
+                                return new LicenseResult
+                                {
+                                    Status = LicenseStatus.Expired,
+                                    IsTrial = true,
+                                    DaysRemaining = 0,
+                                    CanStartTrial = false,
+                                    Message = $"Your 7-day free trial expired on {trial.ExpiryDate:dd MMM yyyy}. Please contact AL-HAJJ Corporation to get a full license key."
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fall through
+            }
+
+            return new LicenseResult
+            {
+                Status = LicenseStatus.NotActivated,
+                Message = "No license found. Please start your 7-day free trial or activate with a license key.",
+                CanStartTrial = !File.Exists(TrialFilePath)
+            };
         }
 
         // ── Helpers ───────────────────────────────────────────────
@@ -236,6 +390,14 @@ namespace ShopInventory.App.Services
         {
             public string Key { get; set; } = "";
             public DateTime SavedAt { get; set; }
+        }
+
+        private class TrialData
+        {
+            public string MachineId { get; set; } = "";
+            public DateTime StartDate { get; set; }
+            public DateTime ExpiryDate { get; set; }
+            public string Signature { get; set; } = "";
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using ShopInventory.App.Services;
 
 namespace ShopInventory.App;
@@ -61,20 +61,14 @@ public partial class App : Microsoft.Maui.Controls.Application
     {
         try
         {
-            // Run your existing licence/security validation here.
-            //
-            // Replace this comment with your actual LicenseService method.
-            //
-            // Example:
-            //
-            // var licenceIsValid =
-            //     await _licenseService.ValidateAsync();
-            //
-            // if (!licenceIsValid)
-            // {
-            //     window.Page = licencePage;
-            //     return;
-            // }
+            // Check license validity (paid key or active 7-day free trial)
+            var license = _licenseService.CheckCurrentLicense();
+            if (!license.IsValid)
+            {
+                window.Title = "Software Activation - ShopInventory";
+                window.Page = _serviceProvider.GetRequiredService<MainPage>();
+                return;
+            }
 
             var settings =
                 await _settingsService.GetSettingsAsync();
